@@ -1,0 +1,3338 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <title>Körjournal - Team Geomira AB</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        secondary: '#1E40AF',
+                        accent: '#10B981',
+                        warning: '#F59E0B',
+                        danger: '#EF4444',
+                        success: '#10B981',
+                        info: '#8B5CF6',
+                        light: '#F9FAFB',
+                        dark: '#1F2937'
+                    },
+                    fontSize: {
+                        'xxs': '0.625rem',
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s infinite',
+                        'bounce-slow': 'bounce 2s infinite',
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        
+        .btn-flotante {
+            position: fixed;
+            bottom: 16px;
+            right: 16px;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .btn-flotante:hover {
+            transform: translateY(-5px) scale(1.05);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2);
+        }
+        
+        .btn-flotante-second {
+            bottom: 85px;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+        
+        .btn-flotante-third {
+            bottom: 154px;
+            background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0; top: 0;
+            width: 100%; height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            overflow-y: auto;
+            backdrop-filter: blur(5px);
+        }
+        .modal-content {
+            background: linear-gradient(to bottom right, #ffffff, #f8fafc);
+            margin: 5% auto;
+            padding: 30px;
+            border: 1px solid #e2e8f0;
+            width: 90%;
+            max-width: 900px;
+            max-height: 90vh;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+            animation: slideIn 0.3s ease-out;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        .modal-content.login {
+            background: linear-gradient(to bottom right, #ffffff, #f8fafc);
+            margin: 5% auto;
+            padding: 30px;
+            border: 1px solid #e2e8f0;
+            width: 90%;
+            max-width: 400px;
+            max-height: 90vh;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+            animation: slideIn 0.3s ease-out;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+        
+        @media (max-width: 768px) {
+            .modal-content {
+                margin: 1%;
+                padding: 16px;
+                width: 98%;
+                max-height: 95vh;
+                max-width: 98%;
+            }
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .close {
+            color: #94a3b8;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: color 0.2s;
+            position: absolute;
+            right: 20px;
+            top: 15px;
+            z-index: 10;
+        }
+        .close:hover {
+            color: #64748b;
+        }
+        
+        .section-card {
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            overflow: hidden;
+            background: white;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .section-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+        }
+        .section-header {
+            background: linear-gradient(to right, #4f46e5, #7c3aed);
+            color: white;
+            padding: 16px 20px;
+            border-bottom: 1px solid #e2e8f0;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .section-body {
+            padding: 20px;
+        }
+        
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 26px;
+        }
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(to right, #cbd5e1, #94a3b8);
+            transition: .4s;
+            border-radius: 34px;
+        }
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        input:checked + .toggle-slider {
+            background: linear-gradient(to right, #10b981, #34d399);
+        }
+        input:checked + .toggle-slider:before {
+            transform: translateX(24px);
+        }
+        
+        .default-toggle {
+            display: flex;
+            align-items: center;
+            margin-top: 8px;
+        }
+        .default-toggle span {
+            font-size: 0.75rem;
+            color: #64748b;
+            margin-left: 8px;
+        }
+        
+        .login-container {
+            max-width: 400px;
+            margin: 100px auto;
+            padding: 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 20px;
+            box-shadow: 0 20px 30px rgba(0, 0, 0, 0.2);
+        }
+        
+        .btn-gradient-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 24px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .btn-gradient-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn-gradient-success {
+            background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 24px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .btn-gradient-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(16, 185, 129, 0.3);
+        }
+        
+        .btn-gradient-danger {
+            background: linear-gradient(135deg, #ef4444 0%, #f87171 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 24px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .btn-gradient-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(239, 68, 68, 0.3);
+        }
+        
+        .input-enhanced {
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 12px 16px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            background: white;
+        }
+        .input-enhanced:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        .collapsible-section {
+            transition: all 0.3s ease;
+            overflow: hidden;
+        }
+        .collapsible-header {
+            cursor: pointer;
+            padding: 16px;
+            background: linear-gradient(to right, #f8fafc, #e2e8f0);
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            transition: all 0.3s ease;
+        }
+        .collapsible-header:hover {
+            background: linear-gradient(to right, #e2e8f0, #cbd5e1);
+        }
+        .collapsible-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+        .collapsible-content.expanded {
+            max-height: 2000px;
+        }
+        .collapsible-chevron {
+            transition: transform 0.3s ease;
+        }
+        .collapsible-chevron.rotated {
+            transform: rotate(180deg);
+        }
+        
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
+            border: 1px solid #e2e8f0;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+        
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        .alert {
+            animation: slideInRight 0.3s ease;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .alert-success {
+            background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+            color: #065f46;
+            border-left: 4px solid #10b981;
+        }
+        .alert-error {
+            background: linear-gradient(135deg, #fee2e2, #fecaca);
+            color: #991b1b;
+            border-left: 4px solid #ef4444;
+        }
+        .alert-warning {
+            background: linear-gradient(135deg, #fef3c7, #fde68a);
+            color: #92400e;
+            border-left: 4px solid #f59e0b;
+        }
+        
+        .logo-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+        .logo-icon {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 16px;
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+        }
+        .logo-icon img {
+            width: 48px;
+            height: 48px;
+            object-fit: contain;
+        }
+        
+        @media (max-width: 640px) {
+            .container {
+                padding-left: 16px;
+                padding-right: 16px;
+            }
+            .modal-content {
+                padding: 20px;
+                margin: 10% auto;
+            }
+            .btn-flotante {
+                bottom: 20px;
+                right: 20px;
+                width: 52px;
+                height: 52px;
+            }
+            .btn-flotante-second {
+                bottom: 85px;
+            }
+            .btn-flotante-third {
+                bottom: 154px;
+            }
+        }
+        
+        .sort-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 0.875rem;
+            color: #6b7280;
+            display: flex;
+            align-items: center;
+            gap: 2px;
+        }
+        .sort-btn:hover {
+            color: #374151;
+        }
+        .sort-icon {
+            transition: transform 0.2s;
+        }
+        .sort-icon.rotated {
+            transform: rotate(180deg);
+        }
+        
+        .vehicle-group {
+            margin-bottom: 24px;
+        }
+        .vehicle-group-header {
+            background: linear-gradient(to right, #e0f2fe, #bae6fd);
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            font-weight: 600;
+            color: #0369a1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .vehicle-group-total {
+            font-size: 0.875rem;
+            background: white;
+            padding: 4px 12px;
+            border-radius: 16px;
+            border: 1px solid #7dd3fc;
+        }
+        
+        .km-warning {
+            font-size: 0.75rem;
+            color: #dc2626;
+            margin-top: 4px;
+            display: block;
+        }
+        
+        .hidden-section {
+            display: none !important;
+        }
+        
+        .records-table {
+            margin-top: 16px;
+            margin-bottom: 24px;
+        }
+        
+        .default-toggle input[type="checkbox"] {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .default-toggle label {
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+        }
+        
+        .default-toggle .toggle-text {
+            margin-left: 8px;
+            font-size: 0.75rem;
+            color: #64748b;
+            user-select: none;
+        }
+        
+        .default-toggle input[type="checkbox"]:checked + .toggle-slider + .toggle-text {
+            color: #10b981;
+            font-weight: 500;
+        }
+        
+        .config-section-content {
+            transition: all 0.3s ease;
+        }
+        
+        .config-section-content.hidden {
+            display: none;
+        }
+        
+        .validation-error {
+            border-color: #ef4444 !important;
+            background-color: #fef2f2 !important;
+        }
+        
+        .validation-message {
+            font-size: 0.75rem;
+            color: #dc2626;
+            margin-top: 4px;
+            display: block;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-gray-50 to-blue-50 min-h-screen">
+    <a href="https://teamgeomira.github.io/G12_A1/" class="btn-flotante" title="Tillbaka till startsidan">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+        </svg>
+    </a>
+
+    <a href="https://teamgeomira.github.io/Franvarorapport/" class="btn-flotante btn-flotante-second" title="Gå till närvarorapport">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+        </svg>
+    </a>
+
+    <a href="helpK.html" class="btn-flotante btn-flotante-third" title="Hjälp och manual">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+    </a>
+
+    <div id="loginModal" class="modal" style="display: block;">
+        <div class="modal-content login">
+            <div class="logo-container">
+                <div class="logo-icon">
+                    <img src="icon-192.png" alt="Team Geomira Logo">
+                </div>
+                <div class="text-center">
+                    <h2 class="text-2xl font-bold text-gray-800">Körjournal</h2>
+                    <p class="text-gray-600 mt-1">Team Geomira AB</p>
+                </div>
+            </div>
+            
+            <div id="loginForm">
+                <h3 class="text-lg font-semibold text-gray-800 mb-6 text-center">Logga in</h3>
+                <div class="space-y-5">
+                    <div>
+                        <label for="loginEmail" class="block text-sm font-medium text-gray-700 mb-2">E-post</label>
+                        <input type="email" id="loginEmail" class="input-enhanced w-full" placeholder="din@email.se" autocomplete="email">
+                    </div>
+                    <div>
+                        <label for="loginPassword" class="block text-sm font-medium text-gray-700 mb-2">Lösenord</label>
+                        <input type="password" id="loginPassword" class="input-enhanced w-full" placeholder="Ditt lösenord" autocomplete="current-password">
+                    </div>
+                    <button id="loginBtn" class="btn-gradient-primary w-full py-3">
+                        Logga in
+                    </button>
+                </div>
+                <div class="mt-6 text-center">
+                    <p class="text-sm text-gray-600">Har du inget konto?</p>
+                    <button id="showRegisterBtn" class="text-primary hover:text-secondary text-sm font-medium mt-1">
+                        Registrera nytt konto
+                    </button>
+                </div>
+            </div>
+            
+            <div id="registerForm" class="hidden">
+                <h3 class="text-lg font-semibold text-gray-800 mb-6 text-center">Registrera nytt konto</h3>
+                <div class="space-y-5">
+                    <div>
+                        <label for="registerEmail" class="block text-sm font-medium text-gray-700 mb-2">E-post</label>
+                        <input type="email" id="registerEmail" class="input-enhanced w-full" placeholder="din@email.se" autocomplete="email">
+                    </div>
+                    <div>
+                        <label for="registerPassword" class="block text-sm font-medium text-gray-700 mb-2">Lösenord</label>
+                        <input type="password" id="registerPassword" class="input-enhanced w-full" placeholder="Minst 6 tecken" autocomplete="new-password">
+                    </div>
+                    <div>
+                        <label for="registerName" class="block text-sm font-medium text-gray-700 mb-2">Namn</label>
+                        <input type="text" id="registerName" class="input-enhanced w-full" placeholder="Ditt namn" autocomplete="name">
+                    </div>
+                    <div class="flex space-x-3">
+                        <button id="registerBtn" class="btn-gradient-success flex-1 py-3">
+                            Registrera
+                        </button>
+                        <button id="backToLoginBtn" class="flex-1 py-3 bg-gray-200 text-gray-800 hover:bg-gray-300 rounded-lg font-medium transition-colors">
+                            Tillbaka
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="loginMessage" class="mt-4 text-center text-sm hidden"></div>
+        </div>
+    </div>
+
+    <!-- Modal för Konfiguration -->
+    <div id="configModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="stängModal('configModal')">&times;</span>
+            <h2 class="text-xl font-bold text-gray-800 mb-6">Konfiguration</h2>
+            
+            <!-- Sektion Fordon -->
+            <div class="section-card">
+                <div class="section-header">
+                    <span>Hantera Fordon</span>
+                    <button onclick="toggleVehicleRecords()" class="text-sm bg-white/30 hover:bg-white/40 text-white px-3 py-1 rounded-lg backdrop-blur-sm transition-colors">
+                        <span id="vehicleToggleText">Visa Fordon</span>
+                    </button>
+                </div>
+                <div class="section-body">
+                    <form id="vehicleForm" class="mb-6">
+                        <input type="hidden" id="vehicleId">
+                        <input type="hidden" id="vehicleVersion" value="0">
+                        <input type="hidden" id="vehicleHasRecords" value="false">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label for="vehicleReg" class="block text-sm font-medium text-gray-700 mb-2">Registreringsnummer *</label>
+                                <input type="text" id="vehicleReg" required class="input-enhanced w-full text-sm" onblur="kontrolleraVehicleDuplicat()">
+                                <span id="vehicleRegError" class="validation-message hidden">Detta registreringsnummer finns redan</span>
+                            </div>
+                            <div>
+                                <label for="vehicleBrand" class="block text-sm font-medium text-gray-700 mb-2">Märke *</label>
+                                <input type="text" id="vehicleBrand" required class="input-enhanced w-full text-sm">
+                            </div>
+                            <div>
+                                <label for="vehicleModel" class="block text-sm font-medium text-gray-700 mb-2">Modell *</label>
+                                <input type="text" id="vehicleModel" required class="input-enhanced w-full text-sm">
+                            </div>
+                            <div>
+                                <label for="vehicleInitialKm" class="block text-sm font-medium text-gray-700 mb-2">Startkilometer</label>
+                                <input type="number" id="vehicleInitialKm" min="0" class="input-enhanced w-full text-sm">
+                                <span id="vehicleKmHelp" class="km-warning hidden">Startkilometer kan ej ändras om fordon har registrerade resor</span>
+                            </div>
+                        </div>
+                        <div class="flex justify-end gap-3">
+                            <button type="button" onclick="återställVehicleForm()" class="px-4 py-2 text-sm bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg font-medium transition-colors">Rensa</button>
+                            <button type="submit" class="px-4 py-2 text-sm btn-gradient-primary font-medium">Spara Fordon</button>
+                        </div>
+                    </form>
+                    
+                    <!-- Denna tabell ska döljas/visas -->
+                    <div id="vehiclesTableSection" class="config-section-content">
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200 text-sm">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reg.nr</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Märke/Modell</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Senaste KM</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Skapad av</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Åtgärder</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="vehiclesList" class="bg-white divide-y divide-gray-200"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Sektion Projekt -->
+            <div class="section-card">
+                <div class="section-header">
+                    <span>Hantera Projekt</span>
+                    <button onclick="toggleProjectRecords()" class="text-sm bg-white/30 hover:bg-white/40 text-white px-3 py-1 rounded-lg backdrop-blur-sm transition-colors">
+                        <span id="projectToggleText">Visa Projekt</span>
+                    </button>
+                </div>
+                <div class="section-body">
+                    <form id="projectForm" class="mb-6">
+                        <input type="hidden" id="projectId">
+                        <input type="hidden" id="projectVersion" value="0">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label for="projectCode" class="block text-sm font-medium text-gray-700 mb-2">Projektkod *</label>
+                                <input type="text" id="projectCode" required class="input-enhanced w-full text-sm" onblur="kontrolleraProjectDuplicat()">
+                                <span id="projectCodeError" class="validation-message hidden">Denna projektkod finns redan</span>
+                            </div>
+                            <div>
+                                <label for="projectName" class="block text-sm font-medium text-gray-700 mb-2">Projektnamn *</label>
+                                <input type="text" id="projectName" required class="input-enhanced w-full text-sm" onblur="kontrolleraProjectNamnDuplicat()">
+                                <span id="projectNameError" class="validation-message hidden">Detta projektnamn finns redan</span>
+                            </div>
+                            <div class="md:col-span-2">
+                                <label for="projectDescription" class="block text-sm font-medium text-gray-700 mb-2">Beskrivning</label>
+                                <textarea id="projectDescription" rows="2" class="input-enhanced w-full text-sm"></textarea>
+                            </div>
+                        </div>
+                        <div class="flex justify-end gap-3">
+                            <button type="button" onclick="återställProjectForm()" class="px-4 py-2 text-sm bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg font-medium transition-colors">Rensa</button>
+                            <button type="submit" class="px-4 py-2 text-sm btn-gradient-primary font-medium">Spara Projekt</button>
+                        </div>
+                    </form>
+                    
+                    <!-- Denna tabell ska döljas/visas -->
+                    <div id="projectsTableSection" class="config-section-content">
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200 text-sm">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kod</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Namn</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Beskrivning</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Skapad av</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Åtgärder</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="projectsList" class="bg-white divide-y divide-gray-200"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Sektion Adresser -->
+            <div class="section-card">
+                <div class="section-header">
+                    <span>Hantera Adresser</span>
+                    <button onclick="toggleAddressRecords()" class="text-sm bg-white/30 hover:bg-white/40 text-white px-3 py-1 rounded-lg backdrop-blur-sm transition-colors">
+                        <span id="addressToggleText">Visa Adresser</span>
+                    </button>
+                </div>
+                <div class="section-body">
+                    <form id="addressForm" class="mb-6">
+                        <input type="hidden" id="addressId">
+                        <input type="hidden" id="addressVersion" value="0">
+                        <div class="grid grid-cols-1 gap-4 mb-4">
+                            <div>
+                                <label for="addressFull" class="block text-sm font-medium text-gray-700 mb-2">Fullständig adress *</label>
+                                <input type="text" id="addressFull" required class="input-enhanced w-full text-sm" placeholder="Ex: Fornhöjdsvägen 54, 152 58 Södertälje" onblur="kontrolleraAddressDuplicat()">
+                                <span id="addressFullError" class="validation-message hidden">Denna adress finns redan</span>
+                            </div>
+                        </div>
+                        <div class="flex justify-end gap-3">
+                            <button type="button" onclick="återställAddressForm()" class="px-4 py-2 text-sm bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg font-medium transition-colors">Rensa</button>
+                            <button type="submit" class="px-4 py-2 text-sm btn-gradient-primary font-medium">Spara Adress</button>
+                        </div>
+                    </form>
+                    
+                    <!-- Denna tabell ska döljas/visas -->
+                    <div id="addressesTableSection" class="config-section-content">
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200 text-sm">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fullständig adress</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Skapad av</th>
+                                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Åtgärder</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="addressesList" class="bg-white divide-y divide-gray-200"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-8 pt-6 border-t border-gray-200 flex justify-end">
+                <button onclick="stängModal('configModal')" class="px-5 py-2 text-sm bg-gray-500 hover:bg-gray-600 text-white rounded-lg font-medium transition-colors">Stäng</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal för varning om samtidighet -->
+    <div id="concurrencyModal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="p-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">Varning</h3>
+                <p id="concurrencyMessage" class="text-gray-600 mb-6"></p>
+                <div class="flex justify-end gap-3">
+                    <button onclick="stängModal('concurrencyModal')" class="px-4 py-2 text-sm bg-gray-300 hover:bg-gray-400 text-gray-800 rounded-lg font-medium">Stäng</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal för dubblettvarning -->
+    <div id="duplicateModal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="p-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">Varning - Dubblett</h3>
+                <p id="duplicateMessage" class="text-gray-600 mb-6"></p>
+                <div class="flex justify-end gap-3">
+                    <button onclick="stängModal('duplicateModal')" class="px-4 py-2 text-sm bg-gray-300 hover:bg-gray-400 text-gray-800 rounded-lg font-medium">Stäng</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="editTripModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="stängModal('editTripModal')">&times;</span>
+            <h2 class="text-xl font-bold text-gray-800 mb-6">Redigera resa</h2>
+            
+            <form id="editTripForm">
+                <input type="hidden" id="editTripId">
+                <div class="space-y-5">
+                    <div>
+                        <label for="editDatum" class="block text-sm font-medium text-gray-700 mb-2">Datum *</label>
+                        <input type="date" id="editDatum" required class="input-enhanced w-full">
+                    </div>
+                    <div>
+                        <label for="editBil" class="block text-sm font-medium text-gray-700 mb-2">Registreringsnummer *</label>
+                        <select id="editBil" required class="input-enhanced w-full">
+                            <option value="">Välj registreringsnummer</option>
+                        </select>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label for="editKmStart" class="block text-sm font-medium text-gray-700 mb-2">KM start *</label>
+                            <input type="number" id="editKmStart" required min="0" class="input-enhanced w-full">
+                        </div>
+                        <div>
+                            <label for="editKmStop" class="block text-sm font-medium text-gray-700 mb-2">KM stop *</label>
+                            <input type="number" id="editKmStop" required min="0" class="input-enhanced w-full">
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label for="editReslangd" class="block text-sm font-medium text-gray-700 mb-2">Reslängd (km) *</label>
+                        <input type="number" id="editReslangd" required readonly class="input-enhanced w-full bg-gray-50">
+                    </div>
+                    
+                    <div>
+                        <label for="editStartAdress" class="block text-sm font-medium text-gray-700 mb-2">Resans start, adress *</label>
+                        <select id="editStartAdress" required class="input-enhanced w-full">
+                            <option value="">Välj startadress...</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label for="editSyfteAdress" class="block text-sm font-medium text-gray-700 mb-2">Ärende/Plats/Syfte *</label>
+                        <select id="editSyfteAdress" required class="input-enhanced w-full">
+                            <option value="">Välj syfteadress...</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label for="editSlutAdress" class="block text-sm font-medium text-gray-700 mb-2">Resans slut, adress *</label>
+                        <select id="editSlutAdress" required class="input-enhanced w-full">
+                            <option value="">Välj slutadress...</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label for="editProjekt" class="block text-sm font-medium text-gray-700 mb-2">Projekt</label>
+                        <select id="editProjekt" class="input-enhanced w-full">
+                            <option value="">Inget projekt</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label for="editSyfteText" class="block text-sm font-medium text-gray-700 mb-2">Anteckningar (förare, tankning etc.) *</label>
+                        <select id="editSyfteText" required class="input-enhanced w-full">
+                            <option value="">Välj syfte...</option>
+                            <option value="Mätkonsultuppdrag">Mätkonsultuppdrag</option>
+                            <option value="Mätkonsultuppdrag och tankning">Mätkonsultuppdrag och tankning</option>
+                            <option value="Projektbesök">Projektbesök</option>
+                            <option value="Möte">Möte</option>
+                            <option value="Kundbesök">Kundbesök</option>
+                            <option value="Leverans">Leverans</option>
+                            <option value="Inköp">Inköp</option>
+                            <option value="Service">Service</option>
+                            <option value="Annat">Annat</option>
+                        </select>
+                        <div id="editAnnatFieldContainer" class="mt-2 hidden">
+                            <input type="text" id="editAnnatText" placeholder="Ange ditt eget syfte..." class="input-enhanced w-full">
+                        </div>
+                    </div>
+                    
+                    <div class="pt-5 border-t border-gray-200 flex justify-end gap-3">
+                        <button type="button" onclick="stängModal('editTripModal')" class="px-5 py-2 text-sm bg-gray-300 hover:bg-gray-400 text-gray-800 rounded-lg font-medium transition-colors">Avbryt</button>
+                        <button type="submit" class="px-5 py-2 text-sm btn-gradient-primary font-medium">Spara ändringar</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="mainApp" class="hidden">
+        <div class="container mx-auto px-4 py-6">
+            <header class="bg-gradient-to-r from-primary to-secondary shadow-lg rounded-2xl p-6 mb-8 text-white">
+                <div class="flex flex-col md:flex-row justify-between items-center">
+                    <div class="mb-4 md:mb-0">
+                        <h1 class="text-2xl md:text-3xl font-bold">Körjournal - Team Geomira AB</h1>
+                        <p class="text-blue-100 mt-1">Fordonsbaserad reseregistrering</p>
+                    </div>
+                    <div class="flex flex-col md:flex-row items-center gap-4">
+                        <div class="flex items-center bg-white/20 backdrop-blur-sm rounded-lg px-4 py-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                            <span id="userName" class="font-medium"></span>
+                        </div>
+                        <button onclick="öppnaConfigModal()" class="px-4 py-2 text-sm bg-white/30 hover:bg-white/40 text-white rounded-lg font-medium backdrop-blur-sm transition-colors">Konfiguration</button>
+                        <button onclick="loggaUtAnvändare()" class="px-4 py-2 text-sm bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium transition-colors">Logga ut</button>
+                    </div>
+                </div>
+            </header>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="stat-card">
+                    <div class="flex items-center">
+                        <div class="p-3 rounded-lg bg-blue-100 mr-4">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-semibold text-gray-700 mb-1">Aktiva fordon</h3>
+                            <p class="text-2xl font-bold text-blue-600" id="activeVehicles">0</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="flex items-center">
+                        <div class="p-3 rounded-lg bg-green-100 mr-4">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-semibold text-gray-700 mb-1">Denna månad</h3>
+                            <p class="text-2xl font-bold text-green-600" id="monthKm">0 km</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="flex items-center">
+                        <div class="p-3 rounded-lg bg-purple-100 mr-4">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-semibold text-gray-700 mb-1">Antal resor</h3>
+                            <p class="text-2xl font-bold text-purple-600" id="tripCount">0</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stat-card mb-8">
+                <div class="flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div class="w-full md:w-auto">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Välj fordon</label>
+                        <select id="mainVehicleSelect" class="input-enhanced w-full md:w-64">
+                            <option value="">Välj fordon...</option>
+                        </select>
+                    </div>
+                    <div class="text-gray-700 bg-gray-50 px-4 py-2 rounded-lg">
+                        <span id="selectedVehicleInfo" class="font-medium">Inget fordon valt</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stat-card mb-8">
+                <h2 class="text-xl font-semibold text-gray-800 mb-6">Registrera resa</h2>
+                
+                <form id="tripForm">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                        <div>
+                            <label for="datum" class="block text-sm font-medium text-gray-700 mb-2">Datum *</label>
+                            <input type="date" id="datum" required class="input-enhanced w-full">
+                            <div class="default-toggle mt-3">
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="setDefaultDate" class="default-checkbox">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                                <span class="text-xs">Sätt som standarddatum</span>
+                            </div>
+                        </div>
+                        <div>
+                            <label for="bil" class="block text-sm font-medium text-gray-700 mb-2">Registreringsnummer *</label>
+                            <select id="bil" required class="input-enhanced w-full">
+                                <option value="">Välj registreringsnummer</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                        <div>
+                            <label for="km_start" class="block text-sm font-medium text-gray-700 mb-2">KM start *</label>
+                            <input type="number" id="km_start" required min="0" class="input-enhanced w-full">
+                            <p class="text-xs text-gray-500 mt-2" id="lastKmInfo"></p>
+                        </div>
+                        <div>
+                            <label for="km_stop" class="block text-sm font-medium text-gray-700 mb-2">KM stop *</label>
+                            <input type="number" id="km_stop" required min="0" class="input-enhanced w-full">
+                        </div>
+                        <div>
+                            <label for="reslangd" class="block text-sm font-medium text-gray-700 mb-2">Reslängd (km) *</label>
+                            <input type="number" id="reslangd" required readonly class="input-enhanced w-full bg-gray-50">
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                        <div>
+                            <label for="start_adress" class="block text-sm font-medium text-gray-700 mb-2">Resans start, adress *</label>
+                            <select id="start_adress" required class="input-enhanced w-full">
+                                <option value="">Välj startadress...</option>
+                            </select>
+                            <div class="default-toggle mt-3">
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="useDefaultStartAddress" class="default-checkbox">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                                <span class="text-xs">Använd standardadress</span>
+                            </div>
+                        </div>
+                        <div>
+                            <label for="syfte_adress" class="block text-sm font-medium text-gray-700 mb-2">Ärende/Plats/Syfte *</label>
+                            <select id="syfte_adress" required class="input-enhanced w-full">
+                                <option value="">Välj syfteadress...</option>
+                            </select>
+                            <div class="default-toggle mt-3">
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="useDefaultSyfteAddress" class="default-checkbox">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                                <span class="text-xs">Använd standardadress</span>
+                            </div>
+                        </div>
+                        <div>
+                            <label for="slut_adress" class="block text-sm font-medium text-gray-700 mb-2">Resans slut, adress *</label>
+                            <select id="slut_adress" required class="input-enhanced w-full">
+                                <option value="">Välj slutadress...</option>
+                            </select>
+                            <div class="default-toggle mt-3">
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="useDefaultEndAddress" class="default-checkbox">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                                <span class="text-xs">Använd standardadress</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                        <div>
+                            <label for="projekt" class="block text-sm font-medium text-gray-700 mb-2">Projekt</label>
+                            <select id="projekt" class="input-enhanced w-full">
+                                <option value="">Inget projekt</option>
+                            </select>
+                            <div class="default-toggle mt-3">
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="setDefaultProject" class="default-checkbox">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                                <span class="text-xs">Standard projekt</span>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label for="syfte_text" class="block text-sm font-medium text-gray-700 mb-2">Anteckningar (förare, tankning etc.) *</label>
+                            <select id="syfte_text" required class="input-enhanced w-full">
+                                <option value="">Välj syfte...</option>
+                                <option value="Mätkonsultuppdrag">Mätkonsultuppdrag</option>
+                                <option value="Mätkonsultuppdrag och tankning">Mätkonsultuppdrag och tankning</option>
+                                <option value="Projektbesök">Projektbesök</option>
+                                <option value="Möte">Möte</option>
+                                <option value="Kundbesök">Kundbesök</option>
+                                <option value="Leverans">Leverans</option>
+                                <option value="Inköp">Inköp</option>
+                                <option value="Service">Service</option>
+                                <option value="Annat">Annat</option>
+                            </select>
+                            <div id="annat-field-container" class="mt-2 hidden">
+                                <input type="text" id="annat_text" placeholder="Ange ditt eget syfte..." class="input-enhanced w-full">
+                            </div>
+                            <div class="default-toggle mt-3">
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="setDefaultPurpose" class="default-checkbox">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                                <span class="text-xs">Standard syfte</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center mb-6 bg-gray-50 p-4 rounded-lg">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="doubleCheckToggle" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <span class="ml-3 text-sm text-gray-700 font-medium">Förhindra dubbla registreringar</span>
+                    </div>
+                    
+                    <div class="flex justify-end gap-3">
+                        <button type="reset" class="px-5 py-2 text-sm bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg font-medium transition-colors">Rensa</button>
+                        <button type="submit" class="px-5 py-2 text-sm btn-gradient-primary font-medium">Spara resa</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="stat-card mb-8">
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+                    <div>
+                        <label for="monthFilter" class="block text-sm font-medium text-gray-700 mb-2">Månad</label>
+                        <select id="monthFilter" class="input-enhanced w-full">
+                            <option value="all">Alla månader</option>
+                            <option value="0">Januari</option>
+                            <option value="1">Februari</option>
+                            <option value="2">Mars</option>
+                            <option value="3">April</option>
+                            <option value="4">Maj</option>
+                            <option value="5">Juni</option>
+                            <option value="6">Juli</option>
+                            <option value="7">Augusti</option>
+                            <option value="8">September</option>
+                            <option value="9">Oktober</option>
+                            <option value="10">November</option>
+                            <option value="11">December</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="yearFilter" class="block text-sm font-medium text-gray-700 mb-2">År</label>
+                        <select id="yearFilter" class="input-enhanced w-full">
+                            <option value="all">Alla år</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="vehicleFilter" class="block text-sm font-medium text-gray-700 mb-2">Fordon</label>
+                        <select id="vehicleFilter" class="input-enhanced w-full">
+                            <option value="all">Alla fordon</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="projectFilter" class="block text-sm font-medium text-gray-700 mb-2">Projekt</label>
+                        <select id="projectFilter" class="input-enhanced w-full">
+                            <option value="all">Alla projekt</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Sortering</label>
+                        <button id="sortDateBtn" class="sort-btn">
+                            Datum
+                            <svg class="sort-icon w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="flex justify-end">
+                    <button id="exportBtn" class="px-5 py-2 text-sm btn-gradient-success font-medium">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Exportera Excel
+                    </button>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="collapsible-section">
+                    <div class="collapsible-header" id="tripsSectionHeader">
+                        <h2 class="text-xl font-semibold text-gray-800">Registrerade resor</h2>
+                        <span class="collapsible-chevron">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </span>
+                    </div>
+                    
+                    <div class="collapsible-content" id="tripsSectionContent">
+                        <div class="overflow-x-auto mt-4" id="tripsListContainer">
+                            <!-- Resorna grupperas efter fordon här -->
+                        </div>
+                        <div id="noTripsMessage" class="hidden text-center py-12 text-gray-500">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-gray-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <p class="text-lg font-medium text-gray-400">Inga resor registrerade än.</p>
+                            <p class="text-sm text-gray-400 mt-1">Börja med att registrera din första resa ovan.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyDCkm9d4vIa9H52dCIMgyiGDcXWh9y3Ruk",
+            authDomain: "skolaraport.firebaseapp.com",
+            databaseURL: "https://skolaraport-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "skolaraport",
+            storageBucket: "skolaraport.appspot.com",
+            messagingSenderId: "720242828475",
+            appId: "1:720242828475:web:7c5f7d3e1c34d1c9d7a8d4"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const auth = firebase.auth();
+
+        let currentUser = null;
+        let vehicles = [];
+        let trips = [];
+        let projects = [];
+        let addresses = [];
+        let userDefaults = {};
+        let sortDirection = 'desc';
+        let availableYears = new Set();
+        let vehiclesLastKm = {};
+        
+        // Variabler för samtidighetskontroll
+        let vehiclesData = {};
+        let projectsData = {};
+        let addressesData = {};
+        
+        // Lokala inställningar i webbläsaren
+        let localConfig = {
+            defaults: {}
+        };
+
+        document.addEventListener('DOMContentLoaded', function() {
+            initieraApp();
+            konfigureraEventListeners();
+            sättAktuelltDatumSverige();
+            kontrolleraInitialData();
+            konfigureraCollapsibleSektioner();
+            laddaLokalKonfig();
+            
+            // Konfigurera tangentbordshändelser för att stänga modal med Escape
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    const modals = document.querySelectorAll('.modal');
+                    modals.forEach(modal => {
+                        if (modal.style.display === 'block') {
+                            modal.style.display = 'none';
+                            document.body.style.overflow = 'auto';
+                        }
+                    });
+                }
+            });
+            
+            // Konfigurera klick utanför för att stänga modaler
+            window.onclick = function(event) {
+                if (event.target.classList.contains('modal')) {
+                    event.target.style.display = 'none';
+                    document.body.style.overflow = 'auto';
+                }
+            };
+        });
+
+        // Ladda lokala inställningar från webbläsaren
+        function laddaLokalKonfig() {
+            const sparadKonfig = localStorage.getItem('vehicleJournalConfig');
+            if (sparadKonfig) {
+                try {
+                    localConfig = JSON.parse(sparadKonfig);
+                    
+                    // Tillämpa standardinställningar om de finns
+                    if (localConfig.defaults) {
+                        // Tillämpa aktiverade kryssrutor
+                        document.querySelectorAll('.default-checkbox').forEach(checkbox => {
+                            const checkboxId = checkbox.id;
+                            if (localConfig.defaults[checkboxId]) {
+                                checkbox.checked = true;
+                            }
+                        });
+                        
+                        // Tillämpa värden sparade i localStorage
+                        tillämpaLokalaDefaults();
+                    }
+                } catch (e) {
+                    console.error('Fel vid laddning av lokal konfiguration:', e);
+                    localConfig = { defaults: {} };
+                }
+            } else {
+                localConfig = { defaults: {} };
+            }
+        }
+
+        // Tillämpa standardvärden sparade i localStorage
+        function tillämpaLokalaDefaults() {
+            if (!localConfig.defaults) return;
+            
+            // Tillämpa standarddatum
+            if (localConfig.defaults.setDefaultDate && localConfig.defaults.dateValue) {
+                document.getElementById('datum').value = localConfig.defaults.dateValue;
+            }
+            
+            // Tillämpa standard startadress
+            if (localConfig.defaults.useDefaultStartAddress && localConfig.defaults.startAddressValue) {
+                document.getElementById('start_adress').value = localConfig.defaults.startAddressValue;
+            }
+            
+            // Tillämpa standard syfteadress
+            if (localConfig.defaults.useDefaultSyfteAddress && localConfig.defaults.syfteAddressValue) {
+                document.getElementById('syfte_adress').value = localConfig.defaults.syfteAddressValue;
+            }
+            
+            // Tillämpa standard slutadress
+            if (localConfig.defaults.useDefaultEndAddress && localConfig.defaults.endAddressValue) {
+                document.getElementById('slut_adress').value = localConfig.defaults.endAddressValue;
+            }
+            
+            // Tillämpa standard syfte
+            if (localConfig.defaults.setDefaultPurpose && localConfig.defaults.purposeValue) {
+                const syfteSelect = document.getElementById('syfte_text');
+                const purposeValue = localConfig.defaults.purposeValue;
+                
+                if (purposeValue && !Array.from(syfteSelect.options).some(opt => opt.value === purposeValue)) {
+                    syfteSelect.value = 'Annat';
+                    document.getElementById('annat_text').value = purposeValue;
+                    document.getElementById('annat-field-container').classList.remove('hidden');
+                } else if (purposeValue) {
+                    syfteSelect.value = purposeValue;
+                }
+            }
+            
+            // Tillämpa standard projekt
+            if (localConfig.defaults.setDefaultProject && localConfig.defaults.projectValue) {
+                document.getElementById('projekt').value = localConfig.defaults.projectValue;
+            }
+        }
+
+        // Spara lokala inställningar i webbläsaren
+        function sparaLokalKonfig() {
+            localStorage.setItem('vehicleJournalConfig', JSON.stringify(localConfig));
+        }
+
+        function initieraApp() {
+            auth.onAuthStateChanged(user => {
+                if (user) {
+                    currentUser = user;
+                    document.getElementById('userName').textContent = user.email;
+                    document.getElementById('loginModal').style.display = 'none';
+                    document.getElementById('mainApp').classList.remove('hidden');
+                    laddaAnvändarDefaults();
+                    laddaAllData();
+                    setTimeout(() => {
+                        if (trips.length > 0) {
+                            expanderaTripsSektion();
+                        }
+                    }, 500);
+                } else {
+                    currentUser = null;
+                    document.getElementById('loginModal').style.display = 'block';
+                    document.getElementById('mainApp').classList.add('hidden');
+                }
+            });
+        }
+
+        function sättAktuelltDatumSverige() {
+            const now = new Date();
+            const sverigeTid = new Date(now.toLocaleString("en-US", {timeZone: "Europe/Stockholm"}));
+            
+            const år = sverigeTid.getFullYear();
+            const månad = String(sverigeTid.getMonth() + 1).padStart(2, '0');
+            const dag = String(sverigeTid.getDate()).padStart(2, '0');
+            
+            document.getElementById('datum').value = `${år}-${månad}-${dag}`;
+        }
+
+        function konfigureraCollapsibleSektioner() {
+            const header = document.getElementById('tripsSectionHeader');
+            const content = document.getElementById('tripsSectionContent');
+            const chevron = header.querySelector('.collapsible-chevron');
+            
+            header.addEventListener('click', function() {
+                if (content.classList.contains('expanded')) {
+                    content.classList.remove('expanded');
+                    chevron.classList.remove('rotated');
+                } else {
+                    content.classList.add('expanded');
+                    chevron.classList.add('rotated');
+                }
+            });
+        }
+
+        function expanderaTripsSektion() {
+            const content = document.getElementById('tripsSectionContent');
+            const chevron = document.querySelector('.collapsible-chevron');
+            if (!content.classList.contains('expanded')) {
+                content.classList.add('expanded');
+                chevron.classList.add('rotated');
+            }
+        }
+
+        function konfigureraEventListeners() {
+            document.getElementById('loginBtn').addEventListener('click', loggaInAnvändare);
+            document.getElementById('registerBtn').addEventListener('click', registreraAnvändare);
+            document.getElementById('showRegisterBtn').addEventListener('click', visaRegistreringsFormulär);
+            document.getElementById('backToLoginBtn').addEventListener('click', visaInloggningsFormulär);
+            
+            document.getElementById('mainVehicleSelect').addEventListener('change', onVehicleSelect);
+            
+            document.getElementById('tripForm').addEventListener('submit', sparaResa);
+            document.getElementById('km_start').addEventListener('change', beräknaDistans);
+            document.getElementById('km_stop').addEventListener('change', beräknaDistans);
+            
+            document.getElementById('syfte_text').addEventListener('change', function() {
+                const annatContainer = document.getElementById('annat-field-container');
+                if (this.value === 'Annat') {
+                    annatContainer.classList.remove('hidden');
+                    document.getElementById('annat_text').required = true;
+                } else {
+                    annatContainer.classList.add('hidden');
+                    document.getElementById('annat_text').required = false;
+                }
+            });
+            
+            document.getElementById('editTripForm').addEventListener('submit', uppdateraResa);
+            document.getElementById('editKmStart').addEventListener('change', beräknaRedigeringsDistans);
+            document.getElementById('editKmStop').addEventListener('change', beräknaRedigeringsDistans);
+            
+            document.getElementById('editSyfteText').addEventListener('change', function() {
+                const annatContainer = document.getElementById('editAnnatFieldContainer');
+                if (this.value === 'Annat') {
+                    annatContainer.classList.remove('hidden');
+                    document.getElementById('editAnnatText').required = true;
+                } else {
+                    annatContainer.classList.add('hidden');
+                    document.getElementById('editAnnatText').required = false;
+                }
+            });
+            
+            // Event listeners för standard-kryssrutor
+            document.querySelectorAll('.default-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    const checkboxId = this.id;
+                    
+                    if (this.checked) {
+                        // Spara det aktuella värdet som standard
+                        sparaStandardvärde(checkboxId);
+                    } else {
+                        // Ta bort standard
+                        taBortStandardvärde(checkboxId);
+                    }
+                });
+            });
+            
+            // Event listeners för att automatiskt spara när värden ändras
+            document.getElementById('datum').addEventListener('change', function() {
+                if (document.getElementById('setDefaultDate').checked) {
+                    sparaStandardvärde('setDefaultDate');
+                }
+            });
+            
+            document.getElementById('start_adress').addEventListener('change', function() {
+                if (document.getElementById('useDefaultStartAddress').checked) {
+                    sparaStandardvärde('useDefaultStartAddress');
+                }
+            });
+            
+            document.getElementById('syfte_adress').addEventListener('change', function() {
+                if (document.getElementById('useDefaultSyfteAddress').checked) {
+                    sparaStandardvärde('useDefaultSyfteAddress');
+                }
+            });
+            
+            document.getElementById('slut_adress').addEventListener('change', function() {
+                if (document.getElementById('useDefaultEndAddress').checked) {
+                    sparaStandardvärde('useDefaultEndAddress');
+                }
+            });
+            
+            document.getElementById('projekt').addEventListener('change', function() {
+                if (document.getElementById('setDefaultProject').checked) {
+                    sparaStandardvärde('setDefaultProject');
+                }
+            });
+            
+            document.getElementById('syfte_text').addEventListener('change', function() {
+                if (document.getElementById('setDefaultPurpose').checked) {
+                    sparaStandardvärde('setDefaultPurpose');
+                }
+            });
+            
+            document.getElementById('annat_text').addEventListener('input', function() {
+                if (document.getElementById('setDefaultPurpose').checked) {
+                    sparaStandardvärde('setDefaultPurpose');
+                }
+            });
+            
+            document.getElementById('monthFilter').addEventListener('change', filterTrips);
+            document.getElementById('yearFilter').addEventListener('change', filterTrips);
+            document.getElementById('vehicleFilter').addEventListener('change', filterTrips);
+            document.getElementById('projectFilter').addEventListener('change', filterTrips);
+            document.getElementById('sortDateBtn').addEventListener('click', växlaSorteringsRiktning);
+            
+            document.getElementById('exportBtn').addEventListener('click', exporteraTillExcel);
+            
+            document.getElementById('vehicleForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                sparaVehicle(e);
+            });
+            document.getElementById('projectForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                sparaProject(e);
+            });
+            document.getElementById('addressForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                sparaAddress(e);
+            });
+
+            document.getElementById('bil').addEventListener('change', function() {
+                uppdateraSenasteKmInfo(this.value);
+            });
+        }
+
+        // Funktioner för att visa/dölja register i konfigurationsmodal
+        function toggleVehicleRecords() {
+            const section = document.getElementById('vehiclesTableSection');
+            const button = document.getElementById('vehicleToggleText');
+            if (section.classList.contains('hidden-section')) {
+                section.classList.remove('hidden-section');
+                button.textContent = 'Dölj Fordon';
+            } else {
+                section.classList.add('hidden-section');
+                button.textContent = 'Visa Fordon';
+            }
+        }
+
+        function toggleProjectRecords() {
+            const section = document.getElementById('projectsTableSection');
+            const button = document.getElementById('projectToggleText');
+            if (section.classList.contains('hidden-section')) {
+                section.classList.remove('hidden-section');
+                button.textContent = 'Dölj Projekt';
+            } else {
+                section.classList.add('hidden-section');
+                button.textContent = 'Visa Projekt';
+            }
+        }
+
+        function toggleAddressRecords() {
+            const section = document.getElementById('addressesTableSection');
+            const button = document.getElementById('addressToggleText');
+            if (section.classList.contains('hidden-section')) {
+                section.classList.remove('hidden-section');
+                button.textContent = 'Dölj Adresser';
+            } else {
+                section.classList.add('hidden-section');
+                button.textContent = 'Visa Adresser';
+            }
+        }
+
+        // Funktioner för att kontrollera dubbletter
+        function kontrolleraVehicleDuplicat() {
+            const vehicleReg = document.getElementById('vehicleReg').value.trim().toUpperCase();
+            const vehicleId = document.getElementById('vehicleId').value;
+            
+            if (!vehicleReg) {
+                rensaVehicleValideringsfel();
+                return false;
+            }
+            
+            // Kontrollera om detta registreringsnummer redan finns (exkludera aktuellt fordon om redigeras)
+            const existingVehicle = vehicles.find(v => 
+                v.regnr.toUpperCase() === vehicleReg && v.id !== vehicleId
+            );
+            
+            if (existingVehicle) {
+                visaVehicleValideringsfel('Detta registreringsnummer finns redan');
+                return true;
+            } else {
+                rensaVehicleValideringsfel();
+                return false;
+            }
+        }
+
+        function kontrolleraProjectDuplicat() {
+            const projectCode = document.getElementById('projectCode').value.trim().toUpperCase();
+            const projectId = document.getElementById('projectId').value;
+            
+            if (!projectCode) {
+                rensaProjectCodeValideringsfel();
+                return false;
+            }
+            
+            // Kontrollera om denna projektkod redan finns (exkludera aktuellt projekt om redigeras)
+            const existingProject = projects.find(p => 
+                p.code.toUpperCase() === projectCode && p.id !== projectId
+            );
+            
+            if (existingProject) {
+                visaProjectCodeValideringsfel('Denna projektkod finns redan');
+                return true;
+            } else {
+                rensaProjectCodeValideringsfel();
+                return false;
+            }
+        }
+
+        function kontrolleraProjectNamnDuplicat() {
+            const projectName = document.getElementById('projectName').value.trim();
+            const projectId = document.getElementById('projectId').value;
+            
+            if (!projectName) {
+                rensaProjectNamnValideringsfel();
+                return false;
+            }
+            
+            // Kontrollera om detta projektnamn redan finns (exkludera aktuellt projekt om redigeras)
+            const existingProject = projects.find(p => 
+                p.name.toLowerCase() === projectName.toLowerCase() && p.id !== projectId
+            );
+            
+            if (existingProject) {
+                visaProjectNamnValideringsfel('Detta projektnamn finns redan');
+                return true;
+            } else {
+                rensaProjectNamnValideringsfel();
+                return false;
+            }
+        }
+
+        function kontrolleraAddressDuplicat() {
+            const addressFull = document.getElementById('addressFull').value.trim();
+            const addressId = document.getElementById('addressId').value;
+            
+            if (!addressFull) {
+                rensaAddressValideringsfel();
+                return false;
+            }
+            
+            // Kontrollera om denna adress redan finns (exkludera aktuell adress om redigeras)
+            const existingAddress = addresses.find(a => 
+                a.full.toLowerCase() === addressFull.toLowerCase() && a.id !== addressId
+            );
+            
+            if (existingAddress) {
+                visaAddressValideringsfel('Denna adress finns redan');
+                return true;
+            } else {
+                rensaAddressValideringsfel();
+                return false;
+            }
+        }
+
+        function visaVehicleValideringsfel(meddelande) {
+            const input = document.getElementById('vehicleReg');
+            const errorSpan = document.getElementById('vehicleRegError');
+            
+            input.classList.add('validation-error');
+            errorSpan.textContent = meddelande;
+            errorSpan.classList.remove('hidden');
+        }
+
+        function rensaVehicleValideringsfel() {
+            const input = document.getElementById('vehicleReg');
+            const errorSpan = document.getElementById('vehicleRegError');
+            
+            input.classList.remove('validation-error');
+            errorSpan.classList.add('hidden');
+        }
+
+        function visaProjectCodeValideringsfel(meddelande) {
+            const input = document.getElementById('projectCode');
+            const errorSpan = document.getElementById('projectCodeError');
+            
+            input.classList.add('validation-error');
+            errorSpan.textContent = meddelande;
+            errorSpan.classList.remove('hidden');
+        }
+
+        function rensaProjectCodeValideringsfel() {
+            const input = document.getElementById('projectCode');
+            const errorSpan = document.getElementById('projectCodeError');
+            
+            input.classList.remove('validation-error');
+            errorSpan.classList.add('hidden');
+        }
+
+        function visaProjectNamnValideringsfel(meddelande) {
+            const input = document.getElementById('projectName');
+            const errorSpan = document.getElementById('projectNameError');
+            
+            input.classList.add('validation-error');
+            errorSpan.textContent = meddelande;
+            errorSpan.classList.remove('hidden');
+        }
+
+        function rensaProjectNamnValideringsfel() {
+            const input = document.getElementById('projectName');
+            const errorSpan = document.getElementById('projectNameError');
+            
+            input.classList.remove('validation-error');
+            errorSpan.classList.add('hidden');
+        }
+
+        function visaAddressValideringsfel(meddelande) {
+            const input = document.getElementById('addressFull');
+            const errorSpan = document.getElementById('addressFullError');
+            
+            input.classList.add('validation-error');
+            errorSpan.textContent = meddelande;
+            errorSpan.classList.remove('hidden');
+        }
+
+        function rensaAddressValideringsfel() {
+            const input = document.getElementById('addressFull');
+            const errorSpan = document.getElementById('addressFullError');
+            
+            input.classList.remove('validation-error');
+            errorSpan.classList.add('hidden');
+        }
+
+        function visaDubblettMeddelande(typ, värde) {
+            const messages = {
+                'fordon': `Fordon med registreringsnummer "${värde}" finns redan.`,
+                'projektkod': `Projekt med kod "${värde}" finns redan.`,
+                'projektnamn': `Projekt med namn "${värde}" finns redan.`,
+                'adress': `Adressen "${värde}" finns redan.`
+            };
+            
+            document.getElementById('duplicateMessage').textContent = messages[typ];
+            öppnaModal('duplicateModal');
+        }
+
+        function sparaStandardvärde(checkboxId) {
+            if (!currentUser) return;
+            
+            let key = '';
+            let värde = '';
+            let localStorageKey = '';
+            
+            switch(checkboxId) {
+                case 'setDefaultDate':
+                    key = 'date';
+                    localStorageKey = 'dateValue';
+                    värde = document.getElementById('datum').value;
+                    break;
+                case 'useDefaultStartAddress':
+                    key = 'start_adress';
+                    localStorageKey = 'startAddressValue';
+                    värde = document.getElementById('start_adress').value;
+                    break;
+                case 'useDefaultSyfteAddress':
+                    key = 'syfte_adress';
+                    localStorageKey = 'syfteAddressValue';
+                    värde = document.getElementById('syfte_adress').value;
+                    break;
+                case 'useDefaultEndAddress':
+                    key = 'slut_adress';
+                    localStorageKey = 'endAddressValue';
+                    värde = document.getElementById('slut_adress').value;
+                    break;
+                case 'setDefaultPurpose':
+                    const syfteText = document.getElementById('syfte_text');
+                    const annatText = document.getElementById('annat_text');
+                    värde = syfteText.value === 'Annat' ? annatText.value.trim() : syfteText.value;
+                    key = 'syfte_text';
+                    localStorageKey = 'purposeValue';
+                    break;
+                case 'setDefaultProject':
+                    key = 'projekt';
+                    localStorageKey = 'projectValue';
+                    värde = document.getElementById('projekt').value;
+                    break;
+            }
+            
+            if (key && värde) {
+                // Spara i localStorage
+                localConfig.defaults[checkboxId] = true;
+                localConfig.defaults[localStorageKey] = värde;
+                sparaLokalKonfig();
+                
+                // Spara i Firebase (valfritt, för synkronisering mellan enheter)
+                userDefaults[key] = värde;
+                database.ref('userDefaults/' + currentUser.uid).set(userDefaults)
+                    .then(() => {
+                        console.log('Standard sparad:', key, värde);
+                    })
+                    .catch(error => {
+                        console.error('Fel vid sparande av standard:', error);
+                    });
+            }
+        }
+
+        function taBortStandardvärde(checkboxId) {
+            if (!currentUser) return;
+            
+            let key = '';
+            let localStorageKey = '';
+            
+            switch(checkboxId) {
+                case 'setDefaultDate':
+                    key = 'date';
+                    localStorageKey = 'dateValue';
+                    break;
+                case 'useDefaultStartAddress':
+                    key = 'start_adress';
+                    localStorageKey = 'startAddressValue';
+                    break;
+                case 'useDefaultSyfteAddress':
+                    key = 'syfte_adress';
+                    localStorageKey = 'syfteAddressValue';
+                    break;
+                case 'useDefaultEndAddress':
+                    key = 'slut_adress';
+                    localStorageKey = 'endAddressValue';
+                    break;
+                case 'setDefaultPurpose':
+                    key = 'syfte_text';
+                    localStorageKey = 'purposeValue';
+                    break;
+                case 'setDefaultProject':
+                    key = 'projekt';
+                    localStorageKey = 'projectValue';
+                    break;
+            }
+            
+            // Ta bort från localStorage
+            if (localConfig.defaults && localConfig.defaults[checkboxId]) {
+                delete localConfig.defaults[checkboxId];
+                if (localStorageKey) {
+                    delete localConfig.defaults[localStorageKey];
+                }
+                sparaLokalKonfig();
+            }
+            
+            // Ta bort från Firebase
+            if (key && userDefaults[key]) {
+                delete userDefaults[key];
+                database.ref('userDefaults/' + currentUser.uid).set(userDefaults)
+                    .then(() => {
+                        console.log('Standard borttagen:', key);
+                    })
+                    .catch(error => {
+                        console.error('Fel vid borttagning av standard:', error);
+                    });
+            }
+        }
+
+        function växlaSorteringsRiktning() {
+            const sortIcon = document.getElementById('sortDateBtn').querySelector('.sort-icon');
+            if (sortDirection === 'desc') {
+                sortDirection = 'asc';
+                sortIcon.classList.add('rotated');
+            } else {
+                sortDirection = 'desc';
+                sortIcon.classList.remove('rotated');
+            }
+            filterTrips();
+        }
+
+        function visaInloggningsFormulär() {
+            document.getElementById('loginForm').classList.remove('hidden');
+            document.getElementById('registerForm').classList.add('hidden');
+            document.getElementById('loginMessage').classList.add('hidden');
+        }
+
+        function visaRegistreringsFormulär() {
+            document.getElementById('loginForm').classList.add('hidden');
+            document.getElementById('registerForm').classList.remove('hidden');
+            document.getElementById('loginMessage').classList.add('hidden');
+        }
+
+        function visaMeddelande(meddelande, isError = false) {
+            const messageDiv = document.getElementById('loginMessage');
+            messageDiv.textContent = meddelande;
+            messageDiv.className = isError ? 'alert alert-error' : 'alert alert-success';
+            messageDiv.classList.remove('hidden');
+        }
+
+        function loggaInAnvändare() {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            
+            if (!email || !password) {
+                visaMeddelande('Fyll i både e-post och lösenord', true);
+                return;
+            }
+            
+            const loginBtn = document.getElementById('loginBtn');
+            loginBtn.innerHTML = '<div class="loading"></div> Loggar in...';
+            loginBtn.disabled = true;
+            
+            auth.signInWithEmailAndPassword(email, password)
+                .then(() => {
+                    loginBtn.innerHTML = 'Logga in';
+                    loginBtn.disabled = false;
+                })
+                .catch(error => {
+                    visaMeddelande('Inloggning misslyckades: ' + error.message, true);
+                    loginBtn.innerHTML = 'Logga in';
+                    loginBtn.disabled = false;
+                });
+        }
+
+        function registreraAnvändare() {
+            const email = document.getElementById('registerEmail').value;
+            const password = document.getElementById('registerPassword').value;
+            const name = document.getElementById('registerName').value;
+            
+            if (!email || !password || !name) {
+                visaMeddelande('Fyll i alla fält', true);
+                return;
+            }
+            
+            if (password.length < 6) {
+                visaMeddelande('Lösenordet måste vara minst 6 tecken', true);
+                return;
+            }
+            
+            const registerBtn = document.getElementById('registerBtn');
+            registerBtn.innerHTML = '<div class="loading"></div> Registrerar...';
+            registerBtn.disabled = true;
+            
+            auth.createUserWithEmailAndPassword(email, password)
+                .then((userCredential) => {
+                    const user = userCredential.user;
+                    return database.ref('users/' + user.uid).set({
+                        email: email,
+                        name: name,
+                        createdAt: new Date().toISOString()
+                    });
+                })
+                .then(() => {
+                    visaMeddelande('Konto skapat! Du är nu inloggad.', false);
+                    setTimeout(() => {
+                        registerBtn.innerHTML = 'Registrera';
+                        registerBtn.disabled = false;
+                        visaInloggningsFormulär();
+                    }, 2000);
+                })
+                .catch(error => {
+                    visaMeddelande('Registrering misslyckades: ' + error.message, true);
+                    registerBtn.innerHTML = 'Registrera';
+                    registerBtn.disabled = false;
+                });
+        }
+
+        function loggaUtAnvändare() {
+            auth.signOut();
+        }
+
+        function laddaAnvändarDefaults() {
+            if (!currentUser) return;
+            
+            database.ref('userDefaults/' + currentUser.uid).once('value').then(snapshot => {
+                if (snapshot.exists()) {
+                    userDefaults = snapshot.val();
+                    tillämpaAnvändarDefaults();
+                }
+            });
+        }
+
+        function tillämpaAnvändarDefaults() {
+            // Först tillämpa defaults från localStorage
+            tillämpaLokalaDefaults();
+            
+            // Sedan synkronisera med Firebase om det finns värden som inte är i localStorage
+            if (userDefaults.date && !localConfig.defaults.dateValue) {
+                localConfig.defaults.dateValue = userDefaults.date;
+                if (!localConfig.defaults.setDefaultDate) {
+                    localConfig.defaults.setDefaultDate = true;
+                }
+            }
+            
+            if (userDefaults.start_adress && !localConfig.defaults.startAddressValue) {
+                localConfig.defaults.startAddressValue = userDefaults.start_adress;
+                if (!localConfig.defaults.useDefaultStartAddress) {
+                    localConfig.defaults.useDefaultStartAddress = true;
+                }
+            }
+            
+            if (userDefaults.syfte_adress && !localConfig.defaults.syfteAddressValue) {
+                localConfig.defaults.syfteAddressValue = userDefaults.syfte_adress;
+                if (!localConfig.defaults.useDefaultSyfteAddress) {
+                    localConfig.defaults.useDefaultSyfteAddress = true;
+                }
+            }
+            
+            if (userDefaults.slut_adress && !localConfig.defaults.endAddressValue) {
+                localConfig.defaults.endAddressValue = userDefaults.slut_adress;
+                if (!localConfig.defaults.useDefaultEndAddress) {
+                    localConfig.defaults.useDefaultEndAddress = true;
+                }
+            }
+            
+            if (userDefaults.syfte_text && !localConfig.defaults.purposeValue) {
+                localConfig.defaults.purposeValue = userDefaults.syfte_text;
+                if (!localConfig.defaults.setDefaultPurpose) {
+                    localConfig.defaults.setDefaultPurpose = true;
+                }
+            }
+            
+            if (userDefaults.projekt && !localConfig.defaults.projectValue) {
+                localConfig.defaults.projectValue = userDefaults.projekt;
+                if (!localConfig.defaults.setDefaultProject) {
+                    localConfig.defaults.setDefaultProject = true;
+                }
+            }
+            
+            // Spara den kombinerade konfigurationen
+            sparaLokalKonfig();
+            
+            // Tillämpa kryssrutor baserat på den kombinerade konfigurationen
+            document.querySelectorAll('.default-checkbox').forEach(checkbox => {
+                const checkboxId = checkbox.id;
+                if (localConfig.defaults[checkboxId]) {
+                    checkbox.checked = true;
+                }
+            });
+        }
+
+        function kontrolleraInitialData() {
+            const defaultData = {
+                addresses: [
+                    {
+                        full: "Fornhöjdsvägen 54, 152 58 Södertälje",
+                        created_by: "system@geomira.se"
+                    },
+                    {
+                        full: "Gillevägen 18, 131 33 Nacka",
+                        created_by: "system@geomira.se"
+                    }
+                ],
+                projects: [
+                    {
+                        code: "PROJ001",
+                        name: "Citybanan Stockholm",
+                        description: "Mätningar för Citybanans utbyggnad",
+                        created_by: "system@geomira.se"
+                    },
+                    {
+                        code: "PROJ002",
+                        name: "Nya Karolinska",
+                        description: "Kontrollmätningar för NKS",
+                        created_by: "system@geomira.se"
+                    }
+                ],
+                vehicles: [
+                    {
+                        regnr: "ABC123",
+                        brand: "Volvo",
+                        model: "XC60",
+                        initialKm: 15000,
+                        created_by: "system@geomira.se"
+                    },
+                    {
+                        regnr: "DEF456",
+                        brand: "Volkswagen",
+                        model: "Transporter",
+                        initialKm: 45000,
+                        created_by: "system@geomira.se"
+                    }
+                ]
+            };
+
+            database.ref('addresses').once('value').then(snapshot => {
+                if (!snapshot.exists() || snapshot.numChildren() === 0) {
+                    defaultData.addresses.forEach(addr => {
+                        database.ref('addresses').push({
+                            ...addr,
+                            created_at: new Date().toISOString()
+                        });
+                    });
+                }
+            });
+
+            database.ref('projects').once('value').then(snapshot => {
+                if (!snapshot.exists() || snapshot.numChildren() === 0) {
+                    defaultData.projects.forEach(proj => {
+                        database.ref('projects').push({
+                            ...proj,
+                            created_at: new Date().toISOString()
+                        });
+                    });
+                }
+            });
+
+            database.ref('vehicles').once('value').then(snapshot => {
+                if (!snapshot.exists() || snapshot.numChildren() === 0) {
+                    defaultData.vehicles.forEach(vehicle => {
+                        database.ref('vehicles').push({
+                            ...vehicle,
+                            created_at: new Date().toISOString()
+                        });
+                    });
+                }
+            });
+        }
+
+        function laddaAllData() {
+            laddaVehicles();
+            laddaProjects();
+            laddaAddresses();
+            laddaTrips();
+        }
+
+        function laddaVehicles() {
+            database.ref('vehicles').on('value', snapshot => {
+                vehicles = [];
+                vehiclesData = {};
+                const mainSelect = document.getElementById('mainVehicleSelect');
+                const vehicleFilter = document.getElementById('vehicleFilter');
+                const bilSelect = document.getElementById('bil');
+                const editBilSelect = document.getElementById('editBil');
+                
+                mainSelect.innerHTML = '<option value="">Välj fordon...</option>';
+                vehicleFilter.innerHTML = '<option value="all">Alla fordon</option>';
+                bilSelect.innerHTML = '<option value="">Välj registreringsnummer</option>';
+                editBilSelect.innerHTML = '<option value="">Välj registreringsnummer</option>';
+                
+                snapshot.forEach(childSnapshot => {
+                    const vehicle = childSnapshot.val();
+                    vehicle.id = childSnapshot.key;
+                    vehicles.push(vehicle);
+                    vehiclesData[vehicle.id] = vehicle;
+                    
+                    const mainOption = document.createElement('option');
+                    mainOption.value = vehicle.id;
+                    mainOption.textContent = `${vehicle.regnr}`;
+                    mainSelect.appendChild(mainOption);
+                    
+                    const filterOption = document.createElement('option');
+                    filterOption.value = vehicle.regnr;
+                    filterOption.textContent = `${vehicle.regnr}`;
+                    vehicleFilter.appendChild(filterOption);
+                    
+                    const formOption = document.createElement('option');
+                    formOption.value = vehicle.regnr;
+                    formOption.textContent = `${vehicle.regnr}`;
+                    bilSelect.appendChild(formOption.cloneNode(true));
+                    editBilSelect.appendChild(formOption.cloneNode(true));
+                });
+                
+                uppdateraVehiclesList();
+                document.getElementById('activeVehicles').textContent = vehicles.length;
+                
+                uppdateraAllaVehiclesSenasteKm();
+            });
+        }
+
+        function uppdateraAllaVehiclesSenasteKm() {
+            vehiclesLastKm = {};
+            
+            vehicles.forEach(vehicle => {
+                const vehicleTrips = trips.filter(trip => trip.bil === vehicle.regnr);
+                
+                if (vehicleTrips.length > 0) {
+                    vehicleTrips.sort((a, b) => new Date(b.datum) - new Date(a.datum));
+                    const lastTrip = vehicleTrips[0];
+                    vehiclesLastKm[vehicle.regnr] = {
+                        km: lastTrip.km_stop,
+                        date: lastTrip.datum
+                    };
+                } else if (vehicle.last_km || vehicle.initialKm) {
+                    const lastKm = vehicle.last_km || vehicle.initialKm;
+                    vehiclesLastKm[vehicle.regnr] = {
+                        km: lastKm,
+                        date: vehicle.updated_at || vehicle.created_at
+                    };
+                }
+            });
+            
+            const selectedVehicle = document.getElementById('bil').value;
+            if (selectedVehicle) {
+                uppdateraSenasteKmInfo(selectedVehicle);
+            }
+        }
+
+        function uppdateraVehiclesList() {
+            const vehiclesList = document.getElementById('vehiclesList');
+            vehiclesList.innerHTML = '';
+            
+            vehicles.forEach(vehicle => {
+                const lastKm = vehiclesLastKm[vehicle.regnr]?.km || vehicle.last_km || vehicle.initialKm || 0;
+                const hasRecords = trips.some(trip => trip.bil === vehicle.regnr);
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="px-4 py-3 text-sm font-medium text-gray-700">${vehicle.regnr}</td>
+                    <td class="px-4 py-3 text-sm text-gray-600">${vehicle.brand} ${vehicle.model}</td>
+                    <td class="px-4 py-3 text-sm text-gray-600">${lastKm}</td>
+                    <td class="px-4 py-3 text-sm text-gray-500">${vehicle.created_by || 'System'}</td>
+                    <td class="px-4 py-3 text-sm font-medium">
+                        <button class="text-primary hover:text-secondary edit-vehicle mr-3" data-id="${vehicle.id}">Redigera</button>
+                        <button class="text-danger hover:text-red-700 delete-vehicle" data-id="${vehicle.id}">Ta bort</button>
+                    </td>
+                `;
+                vehiclesList.appendChild(row);
+                
+                // Spara om den har register för användning i editVehicle
+                if (hasRecords) {
+                    row.setAttribute('data-has-records', 'true');
+                }
+            });
+            
+            document.querySelectorAll('.edit-vehicle').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const vehicleId = this.getAttribute('data-id');
+                    editVehicle(vehicleId);
+                });
+            });
+            
+            document.querySelectorAll('.delete-vehicle').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const vehicleId = this.getAttribute('data-id');
+                    deleteVehicle(vehicleId);
+                });
+            });
+        }
+
+        function editVehicle(vehicleId) {
+            const vehicle = vehicles.find(v => v.id === vehicleId);
+            if (vehicle) {
+                const hasRecords = trips.some(trip => trip.bil === vehicle.regnr);
+                
+                document.getElementById('vehicleId').value = vehicleId;
+                document.getElementById('vehicleVersion').value = vehicle.version || 0;
+                document.getElementById('vehicleHasRecords').value = hasRecords ? 'true' : 'false';
+                document.getElementById('vehicleReg').value = vehicle.regnr;
+                document.getElementById('vehicleBrand').value = vehicle.brand;
+                document.getElementById('vehicleModel').value = vehicle.model;
+                document.getElementById('vehicleInitialKm').value = vehicle.initialKm || '';
+                
+                // Inaktivera startkilometer om det finns register
+                const kmInput = document.getElementById('vehicleInitialKm');
+                const helpText = document.getElementById('vehicleKmHelp');
+                if (hasRecords) {
+                    kmInput.disabled = true;
+                    kmInput.classList.add('bg-gray-100');
+                    helpText.classList.remove('hidden');
+                } else {
+                    kmInput.disabled = false;
+                    kmInput.classList.remove('bg-gray-100');
+                    helpText.classList.add('hidden');
+                }
+                
+                rensaVehicleValideringsfel();
+                öppnaConfigModal();
+            }
+        }
+
+        function deleteVehicle(vehicleId) {
+            if (confirm('Är du säker på att du vill ta bort detta fordon?')) {
+                database.ref('vehicles/' + vehicleId).remove()
+                    .then(() => {
+                        alert('Fordon borttaget!');
+                    })
+                    .catch(error => {
+                        alert('Ett fel inträffade: ' + error.message);
+                    });
+            }
+        }
+
+        function sparaVehicle(e) {
+            e.preventDefault();
+            
+            if (!currentUser) {
+                alert('Du måste vara inloggad för att spara ett fordon');
+                return;
+            }
+            
+            const vehicleId = document.getElementById('vehicleId').value;
+            const currentVersion = parseInt(document.getElementById('vehicleVersion').value) || 0;
+            const vehicleReg = document.getElementById('vehicleReg').value.trim();
+            const vehicleBrand = document.getElementById('vehicleBrand').value.trim();
+            const vehicleModel = document.getElementById('vehicleModel').value.trim();
+            const vehicleInitialKm = parseInt(document.getElementById('vehicleInitialKm').value) || 0;
+            const hasRecords = document.getElementById('vehicleHasRecords').value === 'true';
+            
+            if (!vehicleReg || !vehicleBrand || !vehicleModel) {
+                alert('Vänligen fyll i alla obligatoriska fält');
+                return;
+            }
+            
+            // Kontrollera dubblett först
+            if (kontrolleraVehicleDuplicat()) {
+                visaDubblettMeddelande('fordon', vehicleReg);
+                return;
+            }
+            
+            // Kontrollera samtidighet
+            if (vehicleId && vehiclesData[vehicleId]) {
+                const serverVersion = vehiclesData[vehicleId].version || 0;
+                if (serverVersion > currentVersion) {
+                    visaSamtidighetsMeddelande('fordon', vehiclesData[vehicleId].updated_by || 'annan användare');
+                    return;
+                }
+            }
+            
+            // Kontrollera om det finns register och om man försöker ändra startkilometer
+            if (vehicleId && hasRecords) {
+                const originalVehicle = vehicles.find(v => v.id === vehicleId);
+                if (originalVehicle && vehicleInitialKm != originalVehicle.initialKm) {
+                    alert('Startkilometer kan inte ändras när fordon har registrerade resor.');
+                    return;
+                }
+            }
+            
+            const vehicleData = {
+                regnr: vehicleReg.toUpperCase(),
+                brand: vehicleBrand,
+                model: vehicleModel,
+                initialKm: vehicleInitialKm,
+                updated_at: new Date().toISOString(),
+                updated_by: currentUser.email,
+                version: currentVersion + 1
+            };
+            
+            if (vehicleId) {
+                database.ref('vehicles/' + vehicleId).update(vehicleData)
+                    .then(() => {
+                        alert('Fordon uppdaterat!');
+                        återställVehicleForm();
+                    })
+                    .catch(error => {
+                        alert('Ett fel inträffade: ' + error.message);
+                    });
+            } else {
+                vehicleData.created_at = new Date().toISOString();
+                vehicleData.created_by = currentUser.email;
+                vehicleData.version = 1;
+                database.ref('vehicles').push(vehicleData)
+                    .then(() => {
+                        alert('Fordon sparat!');
+                        återställVehicleForm();
+                    })
+                    .catch(error => {
+                        alert('Ett fel inträffade: ' + error.message);
+                    });
+            }
+        }
+
+        function återställVehicleForm() {
+            document.getElementById('vehicleForm').reset();
+            document.getElementById('vehicleId').value = '';
+            document.getElementById('vehicleVersion').value = '0';
+            document.getElementById('vehicleHasRecords').value = 'false';
+            const kmInput = document.getElementById('vehicleInitialKm');
+            kmInput.disabled = false;
+            kmInput.classList.remove('bg-gray-100');
+            document.getElementById('vehicleKmHelp').classList.add('hidden');
+            rensaVehicleValideringsfel();
+        }
+
+        function laddaProjects() {
+            database.ref('projects').on('value', snapshot => {
+                projects = [];
+                projectsData = {};
+                const projektSelect = document.getElementById('projekt');
+                const projectFilter = document.getElementById('projectFilter');
+                const editProjektSelect = document.getElementById('editProjekt');
+                
+                projektSelect.innerHTML = '<option value="">Inget projekt</option>';
+                projectFilter.innerHTML = '<option value="all">Alla projekt</option>';
+                editProjektSelect.innerHTML = '<option value="">Inget projekt</option>';
+                
+                snapshot.forEach(childSnapshot => {
+                    const project = childSnapshot.val();
+                    project.id = childSnapshot.key;
+                    projects.push(project);
+                    projectsData[project.id] = project;
+                    
+                    const option = document.createElement('option');
+                    option.value = project.code;
+                    option.textContent = `${project.code} - ${project.name}`;
+                    projektSelect.appendChild(option.cloneNode(true));
+                    editProjektSelect.appendChild(option.cloneNode(true));
+                    
+                    const filterOption = document.createElement('option');
+                    filterOption.value = project.code;
+                    filterOption.textContent = project.code;
+                    projectFilter.appendChild(filterOption);
+                });
+                
+                uppdateraProjectsList();
+            });
+        }
+
+        function uppdateraProjectsList() {
+            const projectsList = document.getElementById('projectsList');
+            projectsList.innerHTML = '';
+            
+            projects.forEach(project => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="px-4 py-3 text-sm font-medium text-gray-700">${project.code}</td>
+                    <td class="px-4 py-3 text-sm text-gray-600">${project.name}</td>
+                    <td class="px-4 py-3 text-sm text-gray-600">${project.description || ''}</td>
+                    <td class="px-4 py-3 text-sm text-gray-500">${project.created_by || 'System'}</td>
+                    <td class="px-4 py-3 text-sm font-medium">
+                        <button class="text-primary hover:text-secondary edit-project mr-3" data-id="${project.id}">Redigera</button>
+                        <button class="text-danger hover:text-red-700 delete-project" data-id="${project.id}">Ta bort</button>
+                    </td>
+                `;
+                projectsList.appendChild(row);
+            });
+            
+            document.querySelectorAll('.edit-project').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const projectId = this.getAttribute('data-id');
+                    editProject(projectId);
+                });
+            });
+            
+            document.querySelectorAll('.delete-project').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const projectId = this.getAttribute('data-id');
+                    deleteProject(projectId);
+                });
+            });
+        }
+
+        function editProject(projectId) {
+            const project = projects.find(p => p.id === projectId);
+            if (project) {
+                document.getElementById('projectId').value = projectId;
+                document.getElementById('projectVersion').value = project.version || 0;
+                document.getElementById('projectCode').value = project.code;
+                document.getElementById('projectName').value = project.name;
+                document.getElementById('projectDescription').value = project.description || '';
+                
+                rensaProjectCodeValideringsfel();
+                rensaProjectNamnValideringsfel();
+                öppnaConfigModal();
+            }
+        }
+
+        function deleteProject(projectId) {
+            if (confirm('Är du säker på att du vill ta bort detta projekt?')) {
+                database.ref('projects/' + projectId).remove()
+                    .then(() => {
+                        alert('Projekt borttaget!');
+                    })
+                    .catch(error => {
+                        alert('Ett fel inträffade: ' + error.message);
+                    });
+            }
+        }
+
+        function sparaProject(e) {
+            e.preventDefault();
+            
+            if (!currentUser) {
+                alert('Du måste vara inloggad för att spara ett projekt');
+                return;
+            }
+            
+            const projectId = document.getElementById('projectId').value;
+            const currentVersion = parseInt(document.getElementById('projectVersion').value) || 0;
+            const projectCode = document.getElementById('projectCode').value.trim();
+            const projectName = document.getElementById('projectName').value.trim();
+            
+            if (!projectCode || !projectName) {
+                alert('Vänligen fyll i alla obligatoriska fält');
+                return;
+            }
+            
+            // Kontrollera dubbletter först
+            if (kontrolleraProjectDuplicat()) {
+                visaDubblettMeddelande('projektkod', projectCode);
+                return;
+            }
+            
+            if (kontrolleraProjectNamnDuplicat()) {
+                visaDubblettMeddelande('projektnamn', projectName);
+                return;
+            }
+            
+            // Kontrollera samtidighet
+            if (projectId && projectsData[projectId]) {
+                const serverVersion = projectsData[projectId].version || 0;
+                if (serverVersion > currentVersion) {
+                    visaSamtidighetsMeddelande('projekt', projectsData[projectId].updated_by || 'annan användare');
+                    return;
+                }
+            }
+            
+            const projectData = {
+                code: projectCode.toUpperCase(),
+                name: projectName,
+                description: document.getElementById('projectDescription').value || '',
+                updated_at: new Date().toISOString(),
+                updated_by: currentUser.email,
+                version: currentVersion + 1
+            };
+            
+            if (projectId) {
+                database.ref('projects/' + projectId).update(projectData)
+                    .then(() => {
+                        alert('Projekt uppdaterat!');
+                        återställProjectForm();
+                    })
+                    .catch(error => {
+                        alert('Ett fel inträffade: ' + error.message);
+                    });
+            } else {
+                projectData.created_at = new Date().toISOString();
+                projectData.created_by = currentUser.email;
+                projectData.version = 1;
+                database.ref('projects').push(projectData)
+                    .then(() => {
+                        alert('Projekt sparat!');
+                        återställProjectForm();
+                    })
+                    .catch(error => {
+                        alert('Ett fel inträffade: ' + error.message);
+                    });
+            }
+        }
+
+        function återställProjectForm() {
+            document.getElementById('projectForm').reset();
+            document.getElementById('projectId').value = '';
+            document.getElementById('projectVersion').value = '0';
+            rensaProjectCodeValideringsfel();
+            rensaProjectNamnValideringsfel();
+        }
+
+        function laddaAddresses() {
+            database.ref('addresses').on('value', snapshot => {
+                addresses = [];
+                addressesData = {};
+                const startSelect = document.getElementById('start_adress');
+                const syfteSelect = document.getElementById('syfte_adress');
+                const slutSelect = document.getElementById('slut_adress');
+                const editStartSelect = document.getElementById('editStartAdress');
+                const editSyfteSelect = document.getElementById('editSyfteAdress');
+                const editSlutSelect = document.getElementById('editSlutAdress');
+                
+                startSelect.innerHTML = '<option value="">Välj startadress...</option>';
+                syfteSelect.innerHTML = '<option value="">Välj syfteadress...</option>';
+                slutSelect.innerHTML = '<option value="">Välj slutadress...</option>';
+                editStartSelect.innerHTML = '<option value="">Välj startadress...</option>';
+                editSyfteSelect.innerHTML = '<option value="">Välj syfteadress...</option>';
+                editSlutSelect.innerHTML = '<option value="">Välj slutadress...</option>';
+                
+                snapshot.forEach(childSnapshot => {
+                    const address = childSnapshot.val();
+                    address.id = childSnapshot.key;
+                    addresses.push(address);
+                    addressesData[address.id] = address;
+                    
+                    const option = document.createElement('option');
+                    option.value = address.full;
+                    option.textContent = address.full;
+                    startSelect.appendChild(option.cloneNode(true));
+                    syfteSelect.appendChild(option.cloneNode(true));
+                    slutSelect.appendChild(option.cloneNode(true));
+                    editStartSelect.appendChild(option.cloneNode(true));
+                    editSyfteSelect.appendChild(option.cloneNode(true));
+                    editSlutSelect.appendChild(option.cloneNode(true));
+                });
+                
+                uppdateraAddressesList();
+            });
+        }
+
+        function uppdateraAddressesList() {
+            const addressesList = document.getElementById('addressesList');
+            addressesList.innerHTML = '';
+            
+            addresses.forEach(address => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="px-4 py-3 text-sm text-gray-600">${address.full}</td>
+                    <td class="px-4 py-3 text-sm text-gray-500">${address.created_by || 'System'}</td>
+                    <td class="px-4 py-3 text-sm font-medium">
+                        <button class="text-primary hover:text-secondary edit-address mr-3" data-id="${address.id}">Redigera</button>
+                        <button class="text-danger hover:text-red-700 delete-address" data-id="${address.id}">Ta bort</button>
+                    </td>
+                `;
+                addressesList.appendChild(row);
+            });
+            
+            document.querySelectorAll('.edit-address').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const addressId = this.getAttribute('data-id');
+                    editAddress(addressId);
+                });
+            });
+            
+            document.querySelectorAll('.delete-address').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const addressId = this.getAttribute('data-id');
+                    deleteAddress(addressId);
+                });
+            });
+        }
+
+        function editAddress(addressId) {
+            const address = addresses.find(a => a.id === addressId);
+            if (address) {
+                document.getElementById('addressId').value = addressId;
+                document.getElementById('addressVersion').value = address.version || 0;
+                document.getElementById('addressFull').value = address.full;
+                
+                rensaAddressValideringsfel();
+                öppnaConfigModal();
+            }
+        }
+
+        function deleteAddress(addressId) {
+            if (confirm('Är du säker på att du vill ta bort denna adress?')) {
+                database.ref('addresses/' + addressId).remove()
+                    .then(() => {
+                        alert('Adress borttagen!');
+                    })
+                    .catch(error => {
+                        alert('Ett fel inträffade: ' + error.message);
+                    });
+            }
+        }
+
+        function sparaAddress(e) {
+            e.preventDefault();
+            
+            if (!currentUser) {
+                alert('Du måste vara inloggad för att spara en adress');
+                return;
+            }
+            
+            const addressId = document.getElementById('addressId').value;
+            const currentVersion = parseInt(document.getElementById('addressVersion').value) || 0;
+            const addressFull = document.getElementById('addressFull').value.trim();
+            
+            if (!addressFull) {
+                alert('Vänligen fyll i adressfältet');
+                return;
+            }
+            
+            // Kontrollera dubblett först
+            if (kontrolleraAddressDuplicat()) {
+                visaDubblettMeddelande('adress', addressFull);
+                return;
+            }
+            
+            // Kontrollera samtidighet
+            if (addressId && addressesData[addressId]) {
+                const serverVersion = addressesData[addressId].version || 0;
+                if (serverVersion > currentVersion) {
+                    visaSamtidighetsMeddelande('adress', addressesData[addressId].updated_by || 'annan användare');
+                    return;
+                }
+            }
+            
+            const addressData = {
+                full: addressFull,
+                updated_at: new Date().toISOString(),
+                updated_by: currentUser.email,
+                version: currentVersion + 1
+            };
+            
+            if (addressId) {
+                database.ref('addresses/' + addressId).update(addressData)
+                    .then(() => {
+                        alert('Adress uppdaterad!');
+                        återställAddressForm();
+                    })
+                    .catch(error => {
+                        alert('Ett fel inträffade: ' + error.message);
+                    });
+            } else {
+                addressData.created_at = new Date().toISOString();
+                addressData.created_by = currentUser.email;
+                addressData.version = 1;
+                database.ref('addresses').push(addressData)
+                    .then(() => {
+                        alert('Adress sparad!');
+                        återställAddressForm();
+                    })
+                    .catch(error => {
+                        alert('Ett fel inträffade: ' + error.message);
+                    });
+            }
+        }
+
+        function återställAddressForm() {
+            document.getElementById('addressForm').reset();
+            document.getElementById('addressId').value = '';
+            document.getElementById('addressVersion').value = '0';
+            rensaAddressValideringsfel();
+        }
+
+        function visaSamtidighetsMeddelande(typ, updatedBy) {
+            const messages = {
+                'fordon': `Detta fordon har redan uppdaterats av ${updatedBy}. Vänligen ladda om sidan för att se de senaste ändringarna.`,
+                'projekt': `Detta projekt har redan uppdaterats av ${updatedBy}. Vänligen ladda om sidan för att se de senaste ändringarna.`,
+                'adress': `Denna adress har redan uppdaterats av ${updatedBy}. Vänligen ladda om sidan för att se de senaste ändringarna.`
+            };
+            
+            document.getElementById('concurrencyMessage').textContent = messages[typ];
+            öppnaModal('concurrencyModal');
+        }
+
+        function laddaTrips() {
+            database.ref('trips').on('value', snapshot => {
+                trips = [];
+                availableYears.clear();
+                
+                snapshot.forEach(childSnapshot => {
+                    const trip = childSnapshot.val();
+                    trip.id = childSnapshot.key;
+                    trips.push(trip);
+                    
+                    const tripDate = new Date(trip.datum);
+                    availableYears.add(tripDate.getFullYear());
+                });
+                
+                populeraÅrFilter();
+                uppdateraAllaVehiclesSenasteKm();
+                uppdateraTripsDisplay();
+                uppdateraStatistik();
+            });
+        }
+
+        function populeraÅrFilter() {
+            const yearFilter = document.getElementById('yearFilter');
+            const currentYear = new Date().getFullYear();
+            
+            yearFilter.innerHTML = '<option value="all">Alla år</option>';
+            
+            if (availableYears.size > 0) {
+                const yearsArray = Array.from(availableYears).sort((a, b) => b - a);
+                yearsArray.forEach(year => {
+                    const option = document.createElement('option');
+                    option.value = year;
+                    option.textContent = year;
+                    yearFilter.appendChild(option);
+                });
+            } else {
+                for (let year = currentYear - 2; year <= currentYear + 1; year++) {
+                    const option = document.createElement('option');
+                    option.value = year;
+                    option.textContent = year;
+                    yearFilter.appendChild(option);
+                }
+            }
+        }
+
+        function onVehicleSelect() {
+            const vehicleId = document.getElementById('mainVehicleSelect').value;
+            
+            if (!vehicleId) {
+                document.getElementById('selectedVehicleInfo').textContent = 'Inget fordon valt';
+                return;
+            }
+            
+            const vehicle = vehicles.find(v => v.id === vehicleId);
+            if (vehicle) {
+                document.getElementById('selectedVehicleInfo').textContent = `${vehicle.regnr}`;
+                document.getElementById('bil').value = vehicle.regnr;
+                uppdateraSenasteKmInfo(vehicle.regnr);
+            }
+        }
+
+        function uppdateraSenasteKmInfo(vehicleReg) {
+            if (!vehicleReg) return;
+            
+            const vehicleInfo = vehiclesLastKm[vehicleReg];
+            
+            let lastKmInfo = '';
+            let startKmValue = '';
+            
+            if (vehicleInfo) {
+                const formattedDate = formateraDatum(vehicleInfo.date);
+                lastKmInfo = `Senaste KM: ${vehicleInfo.km} (${formattedDate})`;
+                startKmValue = vehicleInfo.km;
+            } else {
+                const vehicle = vehicles.find(v => v.regnr === vehicleReg);
+                if (vehicle && (vehicle.last_km || vehicle.initialKm)) {
+                    const lastKm = vehicle.last_km || vehicle.initialKm;
+                    lastKmInfo = `Start KM: ${lastKm}`;
+                    startKmValue = lastKm;
+                } else {
+                    lastKmInfo = 'Inga tidigare resor';
+                    startKmValue = '';
+                }
+            }
+            
+            document.getElementById('lastKmInfo').textContent = lastKmInfo;
+            document.getElementById('km_start').value = startKmValue;
+            beräknaDistans();
+        }
+
+        function beräknaDistans() {
+            const start = parseInt(document.getElementById('km_start').value) || 0;
+            const stop = parseInt(document.getElementById('km_stop').value) || 0;
+            const reslangd = document.getElementById('reslangd');
+            
+            if (stop >= start) {
+                reslangd.value = stop - start;
+            } else {
+                reslangd.value = 0;
+            }
+        }
+
+        function beräknaRedigeringsDistans() {
+            const start = parseInt(document.getElementById('editKmStart').value) || 0;
+            const stop = parseInt(document.getElementById('editKmStop').value) || 0;
+            const reslangd = document.getElementById('editReslangd');
+            
+            if (stop >= start) {
+                reslangd.value = stop - start;
+            } else {
+                reslangd.value = 0;
+            }
+        }
+
+        function sparaResa(e) {
+            e.preventDefault();
+            
+            if (!currentUser) {
+                alert('Du måste vara inloggad för att spara en resa');
+                return;
+            }
+            
+            const startKm = parseInt(document.getElementById('km_start').value);
+            const stopKm = parseInt(document.getElementById('km_stop').value);
+            const startAddress = document.getElementById('start_adress').value;
+            const syfteAddress = document.getElementById('syfte_adress').value;
+            const endAddress = document.getElementById('slut_adress').value;
+            const date = document.getElementById('datum').value;
+            const purposeSelect = document.getElementById('syfte_text');
+            const purpose = purposeSelect.value === 'Annat' 
+                ? document.getElementById('annat_text').value.trim()
+                : purposeSelect.value;
+            
+            if (!startKm || !stopKm || !startAddress || !syfteAddress || !endAddress || !date || !purpose) {
+                alert('Vänligen fyll i alla obligatoriska fält');
+                return;
+            }
+            
+            if (stopKm < startKm) {
+                alert('KM stop måste vara större än eller lika med KM start');
+                return;
+            }
+            
+            const doubleCheck = document.getElementById('doubleCheckToggle').checked;
+            if (doubleCheck) {
+                const vehicleReg = document.getElementById('bil').value;
+                const isDuplicate = kontrolleraFörDubblettResa(null, vehicleReg, date, startAddress, syfteAddress, endAddress, startKm, stopKm);
+                if (isDuplicate) {
+                    if (!confirm('En liknande resa finns redan registrerad. Vill du fortsätta ändå?')) {
+                        return;
+                    }
+                }
+            }
+            
+            const tripData = {
+                datum: new Date(date).toISOString(),
+                km_start: startKm,
+                km_stop: stopKm,
+                reslangd: stopKm - startKm,
+                start_adress: startAddress,
+                syfte_adress: syfteAddress,
+                slut_adress: endAddress,
+                syfte_text: purpose,
+                projekt: document.getElementById('projekt').value || '',
+                bil: document.getElementById('bil').value,
+                created_by: currentUser.email,
+                created_at: new Date().toISOString(),
+                created_by_uid: currentUser.uid
+            };
+            
+            database.ref('trips').push().set(tripData)
+                .then(() => {
+                    alert('Resan har sparats!');
+                    document.getElementById('tripForm').reset();
+                    sättAktuelltDatumSverige();
+                    document.getElementById('reslangd').value = '';
+                    document.getElementById('annat-field-container').classList.add('hidden');
+                    
+                    tillämpaAnvändarDefaults();
+                    
+                    const vehicleReg = document.getElementById('bil').value;
+                    const vehicle = vehicles.find(v => v.regnr === vehicleReg);
+                    if (vehicle) {
+                        database.ref('vehicles/' + vehicle.id).update({
+                            last_km: stopKm,
+                            updated_at: new Date().toISOString()
+                        });
+                    }
+                    
+                    expanderaTripsSektion();
+                })
+                .catch(error => {
+                    alert('Ett fel inträffade: ' + error.message);
+                });
+        }
+
+        function kontrolleraFörDubblettResa(excludeId, vehicleReg, date, startAddr, syfteAddr, endAddr, startKm, stopKm) {
+            const tripDate = new Date(date);
+            
+            return trips.some(trip => {
+                if (excludeId && trip.id === excludeId) return false;
+                
+                const existingDate = new Date(trip.datum);
+                const isSameDay = tripDate.toDateString() === existingDate.toDateString();
+                const isSameVehicle = trip.bil === vehicleReg;
+                const isSameRoute = trip.start_adress === startAddr && 
+                                  trip.syfte_adress === syfteAddr && 
+                                  trip.slut_adress === endAddr;
+                const isSimilarDistance = Math.abs((trip.reslangd || 0) - (stopKm - startKm)) < 5;
+                
+                return isSameDay && isSameVehicle && isSameRoute && isSimilarDistance;
+            });
+        }
+
+        function uppdateraTripsDisplay() {
+            const tripsListContainer = document.getElementById('tripsListContainer');
+            const noTripsMessage = document.getElementById('noTripsMessage');
+            
+            tripsListContainer.innerHTML = '';
+            
+            if (trips.length === 0) {
+                noTripsMessage.classList.remove('hidden');
+                return;
+            }
+            
+            noTripsMessage.classList.add('hidden');
+            
+            const monthFilterValue = document.getElementById('monthFilter').value;
+            const yearFilterValue = document.getElementById('yearFilter').value;
+            const vehicleFilterValue = document.getElementById('vehicleFilter').value;
+            const projectFilterValue = document.getElementById('projectFilter').value;
+            
+            let filteredTrips = trips;
+            
+            if (monthFilterValue !== 'all') {
+                filteredTrips = filteredTrips.filter(trip => {
+                    const tripDate = new Date(trip.datum);
+                    return tripDate.getMonth().toString() === monthFilterValue;
+                });
+            }
+            
+            if (yearFilterValue !== 'all') {
+                filteredTrips = filteredTrips.filter(trip => {
+                    const tripDate = new Date(trip.datum);
+                    return tripDate.getFullYear().toString() === yearFilterValue;
+                });
+            }
+            
+            if (vehicleFilterValue !== 'all') {
+                filteredTrips = filteredTrips.filter(trip => trip.bil === vehicleFilterValue);
+            }
+            
+            if (projectFilterValue !== 'all') {
+                filteredTrips = filteredTrips.filter(trip => trip.projekt === projectFilterValue);
+            }
+            
+            if (sortDirection === 'asc') {
+                filteredTrips.sort((a, b) => new Date(a.datum) - new Date(b.datum));
+            } else {
+                filteredTrips.sort((a, b) => new Date(b.datum) - new Date(a.datum));
+            }
+            
+            const tripsByVehicle = {};
+            
+            filteredTrips.forEach(trip => {
+                if (!tripsByVehicle[trip.bil]) {
+                    tripsByVehicle[trip.bil] = [];
+                }
+                tripsByVehicle[trip.bil].push(trip);
+            });
+            
+            Object.keys(tripsByVehicle).sort().forEach(vehicleReg => {
+                const vehicleTrips = tripsByVehicle[vehicleReg];
+                const vehicle = vehicles.find(v => v.regnr === vehicleReg);
+                const vehicleName = vehicle ? `${vehicle.regnr} (${vehicle.brand} ${vehicle.model})` : vehicleReg;
+                
+                const totalKm = vehicleTrips.reduce((sum, trip) => sum + (trip.reslangd || 0), 0);
+                
+                const vehicleGroup = document.createElement('div');
+                vehicleGroup.className = 'vehicle-group';
+                
+                vehicleGroup.innerHTML = `
+                    <div class="vehicle-group-header">
+                        <span>${vehicleName}</span>
+                        <span class="vehicle-group-total">Totalt: ${totalKm} km</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Datum</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Resans start</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ärende/Plats/Syfte</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Resans slut</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Reslängd</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Skapad av</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Åtgärder</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tripsList-${vehicleReg}" class="bg-white divide-y divide-gray-200"></tbody>
+                        </table>
+                    </div>
+                `;
+                
+                tripsListContainer.appendChild(vehicleGroup);
+                
+                const tripsList = document.getElementById(`tripsList-${vehicleReg}`);
+                
+                vehicleTrips.forEach(trip => {
+                    const formattedDate = formateraDatum(trip.datum);
+                    
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td class="px-4 py-3 text-sm text-gray-600">${formattedDate}</td>
+                        <td class="px-4 py-3 text-sm text-gray-600">${trip.start_adress}</td>
+                        <td class="px-4 py-3 text-sm text-gray-600">${trip.syfte_adress}</td>
+                        <td class="px-4 py-3 text-sm text-gray-600">${trip.slut_adress}</td>
+                        <td class="px-4 py-3 text-sm text-gray-600 font-medium">${trip.reslangd} km</td>
+                        <td class="px-4 py-3 text-sm text-gray-500">${trip.created_by}</td>
+                        <td class="px-4 py-3 text-sm font-medium">
+                            <button class="text-primary hover:text-secondary edit-trip mr-3" data-id="${trip.id}">Redigera</button>
+                            <button class="text-danger hover:text-red-700 delete-trip" data-id="${trip.id}">Ta bort</button>
+                        </td>
+                    `;
+                    
+                    tripsList.appendChild(row);
+                });
+            });
+            
+            document.querySelectorAll('.edit-trip').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const tripId = this.getAttribute('data-id');
+                    editTrip(tripId);
+                });
+            });
+            
+            document.querySelectorAll('.delete-trip').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const tripId = this.getAttribute('data-id');
+                    deleteTrip(tripId);
+                });
+            });
+        }
+
+        function filterTrips() {
+            uppdateraTripsDisplay();
+        }
+
+        function editTrip(tripId) {
+            const trip = trips.find(t => t.id === tripId);
+            if (trip) {
+                document.getElementById('editTripId').value = tripId;
+                document.getElementById('editDatum').value = formateraDatumFörInput(trip.datum);
+                document.getElementById('editBil').value = trip.bil;
+                document.getElementById('editKmStart').value = trip.km_start;
+                document.getElementById('editKmStop').value = trip.km_stop;
+                document.getElementById('editReslangd').value = trip.reslangd;
+                document.getElementById('editStartAdress').value = trip.start_adress;
+                document.getElementById('editSyfteAdress').value = trip.syfte_adress;
+                document.getElementById('editSlutAdress').value = trip.slut_adress;
+                document.getElementById('editProjekt').value = trip.projekt || '';
+                
+                const editSyfteText = document.getElementById('editSyfteText');
+                const editAnnatContainer = document.getElementById('editAnnatFieldContainer');
+                const editAnnatText = document.getElementById('editAnnatText');
+                
+                if (trip.syfte_text && !Array.from(editSyfteText.options).some(opt => opt.value === trip.syfte_text)) {
+                    editSyfteText.value = 'Annat';
+                    editAnnatText.value = trip.syfte_text;
+                    editAnnatContainer.classList.remove('hidden');
+                } else {
+                    editSyfteText.value = trip.syfte_text;
+                    editAnnatContainer.classList.add('hidden');
+                }
+                
+                öppnaModal('editTripModal');
+            }
+        }
+
+        function uppdateraResa(e) {
+            e.preventDefault();
+            
+            const tripId = document.getElementById('editTripId').value;
+            const trip = trips.find(t => t.id === tripId);
+            
+            if (!trip) {
+                alert('Resa inte hittad');
+                return;
+            }
+            
+            const editSyfteText = document.getElementById('editSyfteText');
+            const editAnnatText = document.getElementById('editAnnatText');
+            const purpose = editSyfteText.value === 'Annat' 
+                ? editAnnatText.value.trim()
+                : editSyfteText.value;
+            
+            const doubleCheck = document.getElementById('doubleCheckToggle').checked;
+            if (doubleCheck) {
+                const vehicleReg = document.getElementById('editBil').value;
+                const date = document.getElementById('editDatum').value;
+                const startAddress = document.getElementById('editStartAdress').value;
+                const syfteAddress = document.getElementById('editSyfteAdress').value;
+                const endAddress = document.getElementById('editSlutAdress').value;
+                const startKm = parseInt(document.getElementById('editKmStart').value);
+                const stopKm = parseInt(document.getElementById('editKmStop').value);
+                
+                const isDuplicate = kontrolleraFörDubblettResa(tripId, vehicleReg, date, startAddress, syfteAddress, endAddress, startKm, stopKm);
+                if (isDuplicate) {
+                    if (!confirm('En liknande resa finns redan registrerad. Vill du fortsätta ändå?')) {
+                        return;
+                    }
+                }
+            }
+            
+            const updatedTripData = {
+                datum: new Date(document.getElementById('editDatum').value).toISOString(),
+                km_start: parseInt(document.getElementById('editKmStart').value),
+                km_stop: parseInt(document.getElementById('editKmStop').value),
+                reslangd: parseInt(document.getElementById('editReslangd').value),
+                start_adress: document.getElementById('editStartAdress').value,
+                syfte_adress: document.getElementById('editSyfteAdress').value,
+                slut_adress: document.getElementById('editSlutAdress').value,
+                syfte_text: purpose,
+                projekt: document.getElementById('editProjekt').value || '',
+                bil: document.getElementById('editBil').value,
+                updated_at: new Date().toISOString(),
+                updated_by: currentUser.email
+            };
+            
+            database.ref('trips/' + tripId).update(updatedTripData)
+                .then(() => {
+                    alert('Resan har uppdaterats!');
+                    stängModal('editTripModal');
+                    
+                    const vehicleReg = document.getElementById('editBil').value;
+                    const vehicle = vehicles.find(v => v.regnr === vehicleReg);
+                    if (vehicle) {
+                        database.ref('vehicles/' + vehicle.id).update({
+                            last_km: updatedTripData.km_stop,
+                            updated_at: new Date().toISOString()
+                        });
+                    }
+                })
+                .catch(error => {
+                    alert('Ett fel inträffade: ' + error.message);
+                });
+        }
+
+        function deleteTrip(tripId) {
+            if (confirm('Är du säker på att du vill ta bort denna resa?')) {
+                database.ref('trips/' + tripId).remove()
+                    .then(() => {
+                        alert('Resa borttagen!');
+                    })
+                    .catch(error => {
+                        alert('Ett fel inträffade: ' + error.message);
+                    });
+            }
+        }
+
+        function uppdateraStatistik() {
+            const now = new Date();
+            const currentMonth = now.getMonth();
+            const currentYear = now.getFullYear();
+            
+            const monthlyTrips = trips.filter(trip => {
+                const tripDate = new Date(trip.datum);
+                return tripDate.getMonth() === currentMonth && tripDate.getFullYear() === currentYear;
+            });
+            
+            const monthlyKm = monthlyTrips.reduce((total, trip) => total + (trip.reslangd || 0), 0);
+            
+            document.getElementById('monthKm').textContent = `${monthlyKm} km`;
+            document.getElementById('tripCount').textContent = monthlyTrips.length;
+        }
+
+        function formateraDatum(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('sv-SE');
+        }
+
+        function formateraDatumFörInput(dateString) {
+            const date = new Date(dateString);
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        function formateraDatumFörExcel(dateString) {
+            const date = new Date(dateString);
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        function exporteraTillExcel() {
+            if (trips.length === 0) {
+                alert('Inga resor att exportera');
+                return;
+            }
+            
+            const wb = XLSX.utils.book_new();
+            const selectedYear = document.getElementById('yearFilter').value;
+            const selectedMonth = document.getElementById('monthFilter').value;
+            const selectedVehicle = document.getElementById('vehicleFilter').value;
+            
+            let vehicleRegNr = '';
+            if (selectedVehicle && selectedVehicle !== 'all') {
+                const vehicle = vehicles.find(v => v.regnr === selectedVehicle);
+                vehicleRegNr = vehicle ? vehicle.regnr : selectedVehicle;
+            }
+            
+            const monthsToExport = selectedMonth === 'all' ? 
+                Array.from({length: 12}, (_, i) => i) : [parseInt(selectedMonth)];
+            
+            monthsToExport.forEach(month => {
+                const monthTrips = trips.filter(trip => {
+                    const tripDate = new Date(trip.datum);
+                    
+                    if (selectedYear !== 'all' && tripDate.getFullYear().toString() !== selectedYear) {
+                        return false;
+                    }
+                    
+                    if (tripDate.getMonth() !== month) {
+                        return false;
+                    }
+                    
+                    if (selectedVehicle && selectedVehicle !== 'all' && trip.bil !== selectedVehicle) {
+                        return false;
+                    }
+                    
+                    return true;
+                });
+                
+                if (monthTrips.length > 0) {
+                    const excelData = [
+                        ['Körjournal för Team Geomira AB', '', '', '', '', '', '', ''],
+                        ['ÅR:', selectedYear === 'all' ? 'Alla år' : selectedYear, '', 'Månad:', getMonthName(month), '', 'Bilens reg.nr:', vehicleRegNr || 'Alla fordon'],
+                        ['', '', '', '', '', '', '', ''],
+                        ['Datum', 'KM ställning Start', 'KM ställning Stop', 'Reslängd', 'Resans start, adress', 'Ärende/Plats/Syfte', 'Resans slut, adress', 'Anteckningar (förare, tankning etc.)']
+                    ];
+                    
+                    monthTrips.sort((a, b) => new Date(a.datum) - new Date(b.datum));
+                    
+                    monthTrips.forEach(trip => {
+                        const formattedDate = formateraDatumFörExcel(trip.datum);
+                        
+                        excelData.push([
+                            formattedDate,
+                            trip.km_start,
+                            trip.km_stop,
+                            trip.reslangd,
+                            trip.start_adress,
+                            trip.syfte_adress,
+                            trip.slut_adress,
+                            trip.syfte_text
+                        ]);
+                    });
+                    
+                    const ws = XLSX.utils.aoa_to_sheet(excelData);
+                    
+                    const colWidths = [
+                        {wch: 12},
+                        {wch: 15},
+                        {wch: 15},
+                        {wch: 10},
+                        {wch: 30},
+                        {wch: 30},
+                        {wch: 30},
+                        {wch: 40}
+                    ];
+                    ws['!cols'] = colWidths;
+                    
+                    XLSX.utils.book_append_sheet(wb, ws, getMonthAbbreviation(month));
+                }
+            });
+            
+            let fileName = `Körjournal`;
+            if (selectedYear !== 'all') {
+                fileName += `_${selectedYear}`;
+            }
+            if (selectedMonth !== 'all') {
+                fileName += `_${getMonthAbbreviation(parseInt(selectedMonth))}`;
+            }
+            if (selectedVehicle && selectedVehicle !== 'all') {
+                fileName += `_${selectedVehicle}`;
+            }
+            
+            XLSX.writeFile(wb, `${fileName}.xlsx`);
+        }
+
+        function getMonthName(monthIndex) {
+            const months = ['Januari', 'Februari', 'Mars', 'April', 'Maj', 'Juni', 'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December'];
+            return months[monthIndex];
+        }
+
+        function getMonthAbbreviation(monthIndex) {
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Maj', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dec'];
+            return months[monthIndex];
+        }
+
+        function öppnaModal(modalId) {
+            document.getElementById(modalId).style.display = 'block';
+            document.body.style.overflow = 'hidden';
+        }
+
+        function öppnaConfigModal() {
+            öppnaModal('configModal');
+        }
+
+        function stängModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+            document.body.style.overflow = 'auto';
+        }
+    </script>
+</body>
+</html>
