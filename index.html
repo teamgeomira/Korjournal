@@ -541,6 +541,29 @@
             margin-top: 4px;
             display: block;
         }
+        
+        /* Nuevos estilos para el interruptor de modo de entrada */
+        .input-mode-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            padding: 10px;
+            background: #f3f4f6;
+            border-radius: 8px;
+        }
+        
+        .input-mode-label {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #4b5563;
+            margin: 0 10px;
+        }
+        
+        .input-mode-label.active {
+            color: #3b82f6;
+            font-weight: 600;
+        }
     </style>
 </head>
 <body class="bg-gradient-to-br from-gray-50 to-blue-50 min-h-screen">
@@ -992,6 +1015,16 @@
             <div class="stat-card mb-8">
                 <h2 class="text-xl font-semibold text-gray-800 mb-6">Registrera resa</h2>
                 
+                <!-- Interruptor para cambiar el modo de entrada -->
+                <div class="input-mode-toggle mb-6">
+                    <span id="kmStopModeLabel" class="input-mode-label active">Ange KM stop</span>
+                    <label class="toggle-switch mx-4">
+                        <input type="checkbox" id="inputModeToggle">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span id="reslangdModeLabel" class="input-mode-label">Ange Reslängd</span>
+                </div>
+                
                 <form id="tripForm">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                         <div>
@@ -1013,7 +1046,8 @@
                         </div>
                     </div>
                     
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                    <!-- Campos de entrada de distancia - Modo KM stop (predeterminado) -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6" id="kmStopInputSection">
                         <div>
                             <label for="km_start" class="block text-sm font-medium text-gray-700 mb-2">KM start *</label>
                             <input type="number" id="km_start" required min="0" class="input-enhanced w-full">
@@ -1026,6 +1060,23 @@
                         <div>
                             <label for="reslangd" class="block text-sm font-medium text-gray-700 mb-2">Reslängd (km) *</label>
                             <input type="number" id="reslangd" required readonly class="input-enhanced w-full bg-gray-50">
+                        </div>
+                    </div>
+                    
+                    <!-- Campos de entrada de distancia - Modo Reslängd (oculto inicialmente) -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6 hidden" id="reslangdInputSection">
+                        <div>
+                            <label for="km_start_reslangd" class="block text-sm font-medium text-gray-700 mb-2">KM start *</label>
+                            <input type="number" id="km_start_reslangd" required min="0" class="input-enhanced w-full">
+                            <p class="text-xs text-gray-500 mt-2" id="lastKmInfoReslangd"></p>
+                        </div>
+                        <div>
+                            <label for="reslangd_input" class="block text-sm font-medium text-gray-700 mb-2">Reslängd (km) *</label>
+                            <input type="number" id="reslangd_input" required min="0" class="input-enhanced w-full">
+                        </div>
+                        <div>
+                            <label for="km_stop_calculated" class="block text-sm font-medium text-gray-700 mb-2">KM stop *</label>
+                            <input type="number" id="km_stop_calculated" required readonly class="input-enhanced w-full bg-gray-50">
                         </div>
                     </div>
                     
@@ -1122,7 +1173,7 @@
                     </div>
                     
                     <div class="flex justify-end gap-3">
-                        <button type="reset" class="px-5 py-2 text-sm bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg font-medium transition-colors">Rensa</button>
+                        <button type="reset" onclick="resetTripForm()" class="px-5 py-2 text-sm bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg font-medium transition-colors">Rensa</button>
                         <button type="submit" class="px-5 py-2 text-sm btn-gradient-primary font-medium">Spara resa</button>
                     </div>
                 </form>
@@ -1240,6 +1291,9 @@
         let availableYears = new Set();
         let vehiclesLastKm = {};
         
+        // Variables for input mode
+        let inputMode = 'kmStop'; // 'kmStop' or 'reslangd'
+        
         // Variabler för samtidighetskontroll
         let vehiclesData = {};
         let projectsData = {};
@@ -1257,6 +1311,9 @@
             kontrolleraInitialData();
             konfigureraCollapsibleSektioner();
             laddaLokalKonfig();
+            
+            // Configurar evento para el interruptor de modo de entrada
+            document.getElementById('inputModeToggle').addEventListener('change', toggleInputMode);
             
             // Konfigurera tangentbordshändelser för att stänga modal med Escape
             document.addEventListener('keydown', function(e) {
@@ -1279,6 +1336,51 @@
                 }
             };
         });
+
+        // Función para cambiar entre modos de entrada
+        function toggleInputMode() {
+            const toggle = document.getElementById('inputModeToggle');
+            const kmStopSection = document.getElementById('kmStopInputSection');
+            const reslangdSection = document.getElementById('reslangdInputSection');
+            const kmStopLabel = document.getElementById('kmStopModeLabel');
+            const reslangdLabel = document.getElementById('reslangdModeLabel');
+            
+            if (toggle.checked) {
+                // Cambiar a modo Reslängd
+                inputMode = 'reslangd';
+                kmStopSection.classList.add('hidden');
+                reslangdSection.classList.remove('hidden');
+                kmStopLabel.classList.remove('active');
+                reslangdLabel.classList.add('active');
+                
+                // Copiar el valor de KM start entre los dos conjuntos de campos
+                const kmStartValue = document.getElementById('km_start').value;
+                document.getElementById('km_start_reslangd').value = kmStartValue;
+                
+                // Actualizar la información del último KM
+                const selectedVehicle = document.getElementById('bil').value;
+                if (selectedVehicle) {
+                    updateLastKmInfoReslangdMode(selectedVehicle);
+                }
+            } else {
+                // Cambiar a modo KM stop
+                inputMode = 'kmStop';
+                kmStopSection.classList.remove('hidden');
+                reslangdSection.classList.add('hidden');
+                kmStopLabel.classList.add('active');
+                reslangdLabel.classList.remove('active');
+                
+                // Copiar el valor de KM start entre los dos conjuntos de campos
+                const kmStartValue = document.getElementById('km_start_reslangd').value;
+                document.getElementById('km_start').value = kmStartValue;
+                
+                // Actualizar la información del último KM
+                const selectedVehicle = document.getElementById('bil').value;
+                if (selectedVehicle) {
+                    updateLastKmInfoKmStopMode(selectedVehicle);
+                }
+            }
+        }
 
         // Ladda lokala inställningar från webbläsaren
         function laddaLokalKonfig() {
@@ -1425,8 +1527,14 @@
             document.getElementById('mainVehicleSelect').addEventListener('change', onVehicleSelect);
             
             document.getElementById('tripForm').addEventListener('submit', sparaResa);
-            document.getElementById('km_start').addEventListener('change', beräknaDistans);
-            document.getElementById('km_stop').addEventListener('change', beräknaDistans);
+            
+            // Event listeners para el modo KM stop
+            document.getElementById('km_start').addEventListener('change', beräknaDistansKmStopMode);
+            document.getElementById('km_stop').addEventListener('change', beräknaDistansKmStopMode);
+            
+            // Event listeners para el modo Reslängd
+            document.getElementById('km_start_reslangd').addEventListener('change', beräknaKmStopReslangdMode);
+            document.getElementById('reslangd_input').addEventListener('change', beräknaKmStopReslangdMode);
             
             document.getElementById('syfte_text').addEventListener('change', function() {
                 const annatContainer = document.getElementById('annat-field-container');
@@ -1534,8 +1642,73 @@
             });
 
             document.getElementById('bil').addEventListener('change', function() {
-                uppdateraSenasteKmInfo(this.value);
+                const selectedVehicle = this.value;
+                if (inputMode === 'kmStop') {
+                    updateLastKmInfoKmStopMode(selectedVehicle);
+                } else {
+                    updateLastKmInfoReslangdMode(selectedVehicle);
+                }
             });
+        }
+
+        // Función para actualizar la información del último KM en modo KM stop
+        function updateLastKmInfoKmStopMode(vehicleReg) {
+            if (!vehicleReg) return;
+            
+            const vehicleInfo = vehiclesLastKm[vehicleReg];
+            
+            let lastKmInfo = '';
+            let startKmValue = '';
+            
+            if (vehicleInfo) {
+                const formattedDate = formateraDatum(vehicleInfo.date);
+                lastKmInfo = `Senaste KM: ${vehicleInfo.km} (${formattedDate})`;
+                startKmValue = vehicleInfo.km;
+            } else {
+                const vehicle = vehicles.find(v => v.regnr === vehicleReg);
+                if (vehicle && (vehicle.last_km || vehicle.initialKm)) {
+                    const lastKm = vehicle.last_km || vehicle.initialKm;
+                    lastKmInfo = `Start KM: ${lastKm}`;
+                    startKmValue = lastKm;
+                } else {
+                    lastKmInfo = 'Inga tidigare resor';
+                    startKmValue = '';
+                }
+            }
+            
+            document.getElementById('lastKmInfo').textContent = lastKmInfo;
+            document.getElementById('km_start').value = startKmValue;
+            beräknaDistansKmStopMode();
+        }
+
+        // Función para actualizar la información del último KM en modo Reslängd
+        function updateLastKmInfoReslangdMode(vehicleReg) {
+            if (!vehicleReg) return;
+            
+            const vehicleInfo = vehiclesLastKm[vehicleReg];
+            
+            let lastKmInfo = '';
+            let startKmValue = '';
+            
+            if (vehicleInfo) {
+                const formattedDate = formateraDatum(vehicleInfo.date);
+                lastKmInfo = `Senaste KM: ${vehicleInfo.km} (${formattedDate})`;
+                startKmValue = vehicleInfo.km;
+            } else {
+                const vehicle = vehicles.find(v => v.regnr === vehicleReg);
+                if (vehicle && (vehicle.last_km || vehicle.initialKm)) {
+                    const lastKm = vehicle.last_km || vehicle.initialKm;
+                    lastKmInfo = `Start KM: ${lastKm}`;
+                    startKmValue = lastKm;
+                } else {
+                    lastKmInfo = 'Inga tidigare resor';
+                    startKmValue = '';
+                }
+            }
+            
+            document.getElementById('lastKmInfoReslangd').textContent = lastKmInfo;
+            document.getElementById('km_start_reslangd').value = startKmValue;
+            beräknaKmStopReslangdMode();
         }
 
         // Funktioner för att visa/dölja register i konfigurationsmodal
@@ -2189,7 +2362,11 @@
             
             const selectedVehicle = document.getElementById('bil').value;
             if (selectedVehicle) {
-                uppdateraSenasteKmInfo(selectedVehicle);
+                if (inputMode === 'kmStop') {
+                    updateLastKmInfoKmStopMode(selectedVehicle);
+                } else {
+                    updateLastKmInfoReslangdMode(selectedVehicle);
+                }
             }
         }
 
@@ -2776,40 +2953,17 @@
             if (vehicle) {
                 document.getElementById('selectedVehicleInfo').textContent = `${vehicle.regnr}`;
                 document.getElementById('bil').value = vehicle.regnr;
-                uppdateraSenasteKmInfo(vehicle.regnr);
-            }
-        }
-
-        function uppdateraSenasteKmInfo(vehicleReg) {
-            if (!vehicleReg) return;
-            
-            const vehicleInfo = vehiclesLastKm[vehicleReg];
-            
-            let lastKmInfo = '';
-            let startKmValue = '';
-            
-            if (vehicleInfo) {
-                const formattedDate = formateraDatum(vehicleInfo.date);
-                lastKmInfo = `Senaste KM: ${vehicleInfo.km} (${formattedDate})`;
-                startKmValue = vehicleInfo.km;
-            } else {
-                const vehicle = vehicles.find(v => v.regnr === vehicleReg);
-                if (vehicle && (vehicle.last_km || vehicle.initialKm)) {
-                    const lastKm = vehicle.last_km || vehicle.initialKm;
-                    lastKmInfo = `Start KM: ${lastKm}`;
-                    startKmValue = lastKm;
+                
+                if (inputMode === 'kmStop') {
+                    updateLastKmInfoKmStopMode(vehicle.regnr);
                 } else {
-                    lastKmInfo = 'Inga tidigare resor';
-                    startKmValue = '';
+                    updateLastKmInfoReslangdMode(vehicle.regnr);
                 }
             }
-            
-            document.getElementById('lastKmInfo').textContent = lastKmInfo;
-            document.getElementById('km_start').value = startKmValue;
-            beräknaDistans();
         }
 
-        function beräknaDistans() {
+        // Función para calcular la distancia en modo KM stop
+        function beräknaDistansKmStopMode() {
             const start = parseInt(document.getElementById('km_start').value) || 0;
             const stop = parseInt(document.getElementById('km_stop').value) || 0;
             const reslangd = document.getElementById('reslangd');
@@ -2819,6 +2973,15 @@
             } else {
                 reslangd.value = 0;
             }
+        }
+
+        // Función para calcular KM stop en modo Reslängd
+        function beräknaKmStopReslangdMode() {
+            const start = parseInt(document.getElementById('km_start_reslangd').value) || 0;
+            const reslangdInput = parseInt(document.getElementById('reslangd_input').value) || 0;
+            const kmStopCalculated = document.getElementById('km_stop_calculated');
+            
+            kmStopCalculated.value = start + reslangdInput;
         }
 
         function beräknaRedigeringsDistans() {
@@ -2833,6 +2996,30 @@
             }
         }
 
+        // Función para resetear el formulario de viaje
+        function resetTripForm() {
+            document.getElementById('tripForm').reset();
+            sättAktuelltDatumSverige();
+            
+            // Limpiar campos calculados
+            document.getElementById('reslangd').value = '';
+            document.getElementById('km_stop_calculated').value = '';
+            document.getElementById('annat-field-container').classList.add('hidden');
+            
+            // Aplicar defaults locales
+            tillämpaAnvändarDefaults();
+            
+            // Actualizar información del último KM según el modo actual
+            const selectedVehicle = document.getElementById('bil').value;
+            if (selectedVehicle) {
+                if (inputMode === 'kmStop') {
+                    updateLastKmInfoKmStopMode(selectedVehicle);
+                } else {
+                    updateLastKmInfoReslangdMode(selectedVehicle);
+                }
+            }
+        }
+
         function sparaResa(e) {
             e.preventDefault();
             
@@ -2841,8 +3028,19 @@
                 return;
             }
             
-            const startKm = parseInt(document.getElementById('km_start').value);
-            const stopKm = parseInt(document.getElementById('km_stop').value);
+            let startKm, stopKm, reslangdValue;
+            
+            // Obtener valores según el modo de entrada
+            if (inputMode === 'kmStop') {
+                startKm = parseInt(document.getElementById('km_start').value);
+                stopKm = parseInt(document.getElementById('km_stop').value);
+                reslangdValue = stopKm - startKm;
+            } else {
+                startKm = parseInt(document.getElementById('km_start_reslangd').value);
+                reslangdValue = parseInt(document.getElementById('reslangd_input').value);
+                stopKm = startKm + reslangdValue;
+            }
+            
             const startAddress = document.getElementById('start_adress').value;
             const syfteAddress = document.getElementById('syfte_adress').value;
             const endAddress = document.getElementById('slut_adress').value;
@@ -2877,7 +3075,7 @@
                 datum: new Date(date).toISOString(),
                 km_start: startKm,
                 km_stop: stopKm,
-                reslangd: stopKm - startKm,
+                reslangd: reslangdValue,
                 start_adress: startAddress,
                 syfte_adress: syfteAddress,
                 slut_adress: endAddress,
@@ -2892,12 +3090,7 @@
             database.ref('trips').push().set(tripData)
                 .then(() => {
                     alert('Resan har sparats!');
-                    document.getElementById('tripForm').reset();
-                    sättAktuelltDatumSverige();
-                    document.getElementById('reslangd').value = '';
-                    document.getElementById('annat-field-container').classList.add('hidden');
-                    
-                    tillämpaAnvändarDefaults();
+                    resetTripForm();
                     
                     const vehicleReg = document.getElementById('bil').value;
                     const vehicle = vehicles.find(v => v.regnr === vehicleReg);
