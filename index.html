@@ -1313,6 +1313,9 @@
             defaults: {}
         };
 
+        // Flag to avoid infinite loops during reconciliation
+        let _reconciling = false;
+
         // Main initialization
         document.addEventListener('DOMContentLoaded', function() {
             initializeApp();
@@ -3031,6 +3034,8 @@
                 updateAllVehiclesLatestKm();
                 updateTripsDisplay();
                 updateStatistics();
+                
+                // No llamamos a reconcile aquí para evitar bucles
             });
         }
 
@@ -3204,16 +3209,10 @@
                     alert('Resan har sparats!');
                     resetTripForm();
                     
-                    // Update vehicle's last KM
-                    const vehicleReg = document.getElementById('bil').value;
-                    const vehicle = vehicles.find(v => v.regnr === vehicleReg);
-                    if (vehicle) {
-                        database.ref('vehicles/' + vehicle.id).update({
-                            last_km: stopKm,
-                            updated_at: new Date().toISOString()
-                        });
-                    }
-                    
+                    // Reconcile trips for this vehicle to ensure correct odometer readings
+                    return reconcileVehicleTrips(tripData.bil);
+                })
+                .then(() => {
                     expandTripsSection();
                 })
                 .catch(error => {
@@ -3238,6 +3237,92 @@
                 
                 return isSameDay && isSameVehicle && isSameRoute && isSimilarDistance;
             });
+        }
+
+        // Reconcile odometer readings for a specific vehicle (asynchronous, uses Firebase directly)
+        function reconcileVehicleTrips(vehicleReg) {
+            if (_reconciling) {
+                console.log('Reconciliation already in progress for', vehicleReg);
+                return Promise.resolve();
+            }
+            _reconciling = true;
+            console.log('Starting reconciliation for', vehicleReg);
+
+            return database.ref('trips').orderByChild('bil').equalTo(vehicleReg).once('value')
+                .then(snapshot => {
+                    const vehicleTrips = [];
+                    snapshot.forEach(child => {
+                        const trip = child.val();
+                        trip.id = child.key;
+                        vehicleTrips.push(trip);
+                    });
+                    vehicleTrips.sort((a, b) => new Date(a.datum) - new Date(b.datum));
+
+                    if (vehicleTrips.length === 0) {
+                        console.log('No trips for', vehicleReg);
+                        return;
+                    }
+
+                    const vehicle = vehicles.find(v => v.regnr === vehicleReg);
+                    if (!vehicle) {
+                        console.log('Vehicle not found', vehicleReg);
+                        return;
+                    }
+
+                    let baseline = vehicle.initialKm || 0;
+                    if (baseline === 0 && vehicleTrips[0].km_start > 0) {
+                        baseline = vehicleTrips[0].km_start;
+                        console.log('Using first trip start as baseline:', baseline);
+                    }
+
+                    let currentKm = baseline;
+                    const updates = {};
+                    let anyChange = false;
+
+                    vehicleTrips.forEach(trip => {
+                        const distance = trip.reslangd || 0;
+                        const newStart = currentKm;
+                        const newStop = newStart + distance;
+
+                        if (trip.km_start !== newStart || trip.km_stop !== newStop) {
+                            console.log(`Trip ${trip.id} will change: start ${trip.km_start}->${newStart}, stop ${trip.km_stop}->${newStop}`);
+                            updates[`trips/${trip.id}/km_start`] = newStart;
+                            updates[`trips/${trip.id}/km_stop`] = newStop;
+                            anyChange = true;
+                        } else {
+                            console.log(`Trip ${trip.id} unchanged`);
+                        }
+
+                        currentKm = newStop;
+                    });
+
+                    if (vehicleTrips.length > 0) {
+                        const lastKm = currentKm;
+                        if (vehicle.last_km !== lastKm) {
+                            console.log(`Vehicle last_km will change: ${vehicle.last_km}->${lastKm}`);
+                            updates[`vehicles/${vehicle.id}/last_km`] = lastKm;
+                            anyChange = true;
+                        }
+                    }
+
+                    if (anyChange) {
+                        console.log('Applying updates:', updates);
+                        return database.ref().update(updates)
+                            .then(() => {
+                                console.log('Reconciliation updates applied successfully for', vehicleReg);
+                                // No need to call loadTrips() here, the Firebase listener will update the view
+                            });
+                    } else {
+                        console.log('No changes needed for', vehicleReg);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error during reconciliation:', error);
+                })
+                .finally(() => {
+                    _reconciling = false;
+                    console.log('Reconciliation finished for', vehicleReg);
+                });
         }
 
         // Update trips display
@@ -3473,15 +3558,8 @@
                     alert('Resan har uppdaterats!');
                     closeModal('editTripModal');
                     
-                    // Update vehicle's last KM
-                    const vehicleReg = document.getElementById('editBil').value;
-                    const vehicle = vehicles.find(v => v.regnr === vehicleReg);
-                    if (vehicle) {
-                        database.ref('vehicles/' + vehicle.id).update({
-                            last_km: updatedTripData.km_stop,
-                            updated_at: new Date().toISOString()
-                        });
-                    }
+                    // Reconcile trips for this vehicle to ensure correct odometer readings
+                    return reconcileVehicleTrips(updatedTripData.bil);
                 })
                 .catch(error => {
                     alert('Ett fel inträffade: ' + error.message);
