@@ -577,6 +577,108 @@
             width: 100% !important;
             height: auto !important;
         }
+
+        /* Estilos para la bitácora */
+        .log-entry {
+            background-color: white;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            border-left: 4px solid #e5e7eb;
+        }
+        .log-entry-create { border-left-color: #10b981; }
+        .log-entry-update { border-left-color: #f59e0b; }
+        .log-entry-delete { border-left-color: #ef4444; }
+        .log-entry-login { border-left-color: #3b82f6; }
+        .log-entry-logout { border-left-color: #6b7280; }
+
+        .log-header {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .log-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .log-badge-create { background-color: #d1fae5; color: #065f46; }
+        .log-badge-update { background-color: #fef3c7; color: #92400e; }
+        .log-badge-delete { background-color: #fee2e2; color: #991b1b; }
+        .log-badge-login { background-color: #dbeafe; color: #1e40af; }
+        .log-badge-logout { background-color: #e5e7eb; color: #374151; }
+
+        .log-timestamp {
+            font-size: 0.75rem;
+            color: #6b7280;
+        }
+        .log-user {
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+        }
+        .log-entity {
+            font-size: 0.8rem;
+            color: #4b5563;
+            margin-left: 8px;
+        }
+        .log-details {
+            margin-top: 12px;
+            background-color: #f9fafb;
+            border-radius: 8px;
+            padding: 12px;
+        }
+        .data-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 8px 16px;
+            margin-top: 8px;
+        }
+        .data-item {
+            display: flex;
+            flex-direction: column;
+            border-bottom: 1px dashed #e5e7eb;
+            padding-bottom: 4px;
+        }
+        .data-label {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            color: #6b7280;
+            font-weight: 600;
+        }
+        .data-value {
+            font-size: 0.85rem;
+            color: #1f2937;
+            word-break: break-word;
+        }
+        .data-value.changed {
+            background-color: #fef9c3;
+            padding: 2px 4px;
+            border-radius: 4px;
+        }
+        .comparison-row {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .comparison-col {
+            flex: 1 1 200px;
+        }
+        .user-agent {
+            font-size: 0.7rem;
+            color: #9ca3af;
+            margin-top: 8px;
+            border-top: 1px solid #e5e7eb;
+            padding-top: 8px;
+            word-break: break-all;
+        }
     </style>
 </head>
 <body class="bg-gradient-to-br from-gray-50 to-blue-50 min-h-screen">
@@ -708,7 +810,6 @@
                         </div>
                     </form>
                     
-                    <!-- Denna tabell ska döljas/visas -->
                     <div id="vehiclesTableSection" class="config-section-content hidden-section">
                         <div class="overflow-x-auto">
                             <table class="min-w-full divide-y divide-gray-200 text-sm">
@@ -762,7 +863,6 @@
                         </div>
                     </form>
                     
-                    <!-- Denna tabell ska döljas/visas -->
                     <div id="projectsTableSection" class="config-section-content hidden-section">
                         <div class="overflow-x-auto">
                             <table class="min-w-full divide-y divide-gray-200 text-sm">
@@ -807,7 +907,6 @@
                         </div>
                     </form>
                     
-                    <!-- Denna tabell ska döljas/visas -->
                     <div id="addressesTableSection" class="config-section-content hidden-section">
                         <div class="overflow-x-auto">
                             <table class="min-w-full divide-y divide-gray-200 text-sm">
@@ -948,6 +1047,23 @@
         </div>
     </div>
 
+    <!-- Modal para la bitácora (oculto, se abre con Ctrl+Shift+L) -->
+    <div id="logModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('logModal')">&times;</span>
+            <h2 class="text-xl font-bold text-gray-800 mb-6">Bitácora de actividades</h2>
+            <div class="mb-4 flex justify-between items-center">
+                <button id="refreshLogsBtn" class="px-4 py-2 text-sm bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium">
+                    Actualizar
+                </button>
+                <span class="text-sm text-gray-500">Mostrando últimos 100 registros</span>
+            </div>
+            <div id="logsContainer" class="space-y-2 max-h-[70vh] overflow-y-auto">
+                <!-- Los logs se cargarán aquí -->
+            </div>
+        </div>
+    </div>
+
     <div id="mainApp" class="hidden">
         <div class="container mx-auto px-4 py-6">
             <header class="bg-gradient-to-r from-primary to-secondary shadow-lg rounded-2xl p-6 mb-8 text-white">
@@ -1028,7 +1144,6 @@
             <div class="stat-card mb-8">
                 <h2 class="text-xl font-semibold text-gray-800 mb-6">Registrera resa</h2>
                 
-                <!-- Interruptor para cambiar el modo de entrada -->
                 <div class="input-mode-toggle mb-6">
                     <span id="kmStopModeLabel" class="input-mode-label active">Ange KM stop</span>
                     <label class="toggle-switch mx-4">
@@ -1052,7 +1167,6 @@
                         </div>
                     </div>
                     
-                    <!-- Campos de entrada de distancia - Modo KM stop (predeterminado) -->
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6" id="kmStopInputSection">
                         <div>
                             <label for="km_start" class="block text-sm font-medium text-gray-700 mb-2 required-field">KM start</label>
@@ -1069,7 +1183,6 @@
                         </div>
                     </div>
                     
-                    <!-- Campos de entrada de distancia - Modo Reslängd (oculto inicialmente) -->
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6 hidden" id="reslangdInputSection">
                         <div>
                             <label for="km_start_reslangd" class="block text-sm font-medium text-gray-700 mb-2 required-field">KM start</label>
@@ -1257,7 +1370,6 @@
                     
                     <div class="collapsible-content" id="tripsSectionContent">
                         <div class="overflow-x-auto mt-4" id="tripsListContainer">
-                            <!-- Resorna grupperas efter fordon här -->
                         </div>
                         <div id="noTripsMessage" class="hidden text-center py-12 text-gray-500">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-gray-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1301,7 +1413,7 @@
         let vehiclesLastKm = {};
         
         // Input mode variables
-        let inputMode = 'kmStop'; // 'kmStop' or 'reslangd'
+        let inputMode = 'kmStop';
         
         // Concurrency control
         let vehiclesData = {};
@@ -1313,8 +1425,151 @@
             defaults: {}
         };
 
-        // Flag to avoid infinite loops during reconciliation
-        let _reconciling = false;
+        // Función para registrar en la bitácora
+        function logAction(action, entityType, entityId, oldData, newData) {
+            if (!currentUser) return; // Solo registrar si hay usuario autenticado
+            const logEntry = {
+                timestamp: new Date().toISOString(),
+                userEmail: currentUser.email,
+                userUid: currentUser.uid,
+                action: action,
+                entityType: entityType,
+                entityId: entityId,
+                oldData: oldData ? JSON.stringify(oldData) : null,
+                newData: newData ? JSON.stringify(newData) : null,
+                userAgent: navigator.userAgent
+            };
+            // Enviar a Firebase (nodo 'logs')
+            database.ref('logs').push(logEntry)
+                .catch(error => console.error('Error al guardar log:', error));
+        }
+
+        // Cargar y mostrar logs en el modal (versión mejorada)
+        function loadLogs() {
+            const logsContainer = document.getElementById('logsContainer');
+            logsContainer.innerHTML = '<div class="text-center py-4">Laddar...</div>';
+            
+            database.ref('logs').orderByChild('timestamp').limitToLast(100).once('value', snapshot => {
+                const logs = [];
+                snapshot.forEach(child => {
+                    logs.push({ id: child.key, ...child.val() });
+                });
+                // Ordenar descendente (más reciente primero)
+                logs.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                
+                if (logs.length === 0) {
+                    logsContainer.innerHTML = '<div class="text-center py-4 text-gray-500">Inga loggar än.</div>';
+                    return;
+                }
+                
+                let html = '';
+                logs.forEach(log => {
+                    const date = new Date(log.timestamp).toLocaleString('sv-SE');
+                    const actionClass = `log-badge-${log.action}`;
+                    const entryClass = `log-entry log-entry-${log.action}`;
+                    
+                    // Parsear oldData y newData si existen
+                    let oldDataObj = null;
+                    let newDataObj = null;
+                    try {
+                        if (log.oldData) oldDataObj = JSON.parse(log.oldData);
+                        if (log.newData) newDataObj = JSON.parse(log.newData);
+                    } catch (e) {
+                        console.warn('Error parsing log data', e);
+                    }
+
+                    // Construir el detalle de datos
+                    let detailsHtml = '';
+                    if (log.action === 'create' && newDataObj) {
+                        detailsHtml = `
+                            <div class="data-grid">
+                                ${Object.entries(newDataObj).map(([key, val]) => `
+                                    <div class="data-item">
+                                        <span class="data-label">${key}</span>
+                                        <span class="data-value">${formatValue(val)}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        `;
+                    } else if (log.action === 'delete' && oldDataObj) {
+                        detailsHtml = `
+                            <div class="data-grid">
+                                ${Object.entries(oldDataObj).map(([key, val]) => `
+                                    <div class="data-item">
+                                        <span class="data-label">${key}</span>
+                                        <span class="data-value">${formatValue(val)}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        `;
+                    } else if (log.action === 'update' && oldDataObj && newDataObj) {
+                        // Mostrar comparación: solo campos que cambiaron
+                        const allKeys = new Set([...Object.keys(oldDataObj), ...Object.keys(newDataObj)]);
+                        let comparisonHtml = '<div class="comparison-row">';
+                        comparisonHtml += '<div class="comparison-col"><h4 class="font-semibold text-sm mb-2">Antiguo</h4>';
+                        allKeys.forEach(key => {
+                            const oldVal = oldDataObj[key];
+                            const newVal = newDataObj[key];
+                            if (JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
+                                comparisonHtml += `
+                                    <div class="data-item">
+                                        <span class="data-label">${key}</span>
+                                        <span class="data-value changed">${formatValue(oldVal)}</span>
+                                    </div>
+                                `;
+                            }
+                        });
+                        comparisonHtml += '</div><div class="comparison-col"><h4 class="font-semibold text-sm mb-2">Nuevo</h4>';
+                        allKeys.forEach(key => {
+                            const oldVal = oldDataObj[key];
+                            const newVal = newDataObj[key];
+                            if (JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
+                                comparisonHtml += `
+                                    <div class="data-item">
+                                        <span class="data-label">${key}</span>
+                                        <span class="data-value changed">${formatValue(newVal)}</span>
+                                    </div>
+                                `;
+                            }
+                        });
+                        comparisonHtml += '</div></div>';
+                        detailsHtml = comparisonHtml;
+                    }
+
+                    html += `
+                        <div class="${entryClass}">
+                            <div class="log-header">
+                                <div>
+                                    <span class="log-badge ${actionClass}">${log.action}</span>
+                                    <span class="log-entity">${log.entityType} (${log.entityId || '?'})</span>
+                                </div>
+                                <div class="log-timestamp">${date}</div>
+                            </div>
+                            <div class="log-user">${log.userEmail}</div>
+                            ${detailsHtml ? `<div class="log-details">${detailsHtml}</div>` : ''}
+                            <div class="user-agent">${log.userAgent}</div>
+                        </div>
+                    `;
+                });
+                logsContainer.innerHTML = html;
+            }).catch(error => {
+                logsContainer.innerHTML = '<div class="text-center py-4 text-red-500">Fel vid laddning av loggar.</div>';
+                console.error(error);
+            });
+        }
+
+        // Helper para formatear valores en el log
+        function formatValue(val) {
+            if (val === null || val === undefined) return '';
+            if (typeof val === 'object') return JSON.stringify(val);
+            return String(val);
+        }
+
+        // Abrir modal de bitácora
+        function openLogModal() {
+            loadLogs();
+            openModal('logModal');
+        }
 
         // Main initialization
         document.addEventListener('DOMContentLoaded', function() {
@@ -1339,6 +1594,13 @@
                         }
                     });
                 }
+                // Ctrl+Shift+L para abrir bitácora
+                if (e.ctrlKey && e.shiftKey && e.key === 'L') {
+                    e.preventDefault();
+                    if (currentUser) {
+                        openLogModal();
+                    }
+                }
             });
             
             // Close modals when clicking outside
@@ -1348,6 +1610,9 @@
                     document.body.style.overflow = 'auto';
                 }
             };
+
+            // Botón de refrescar en el modal de logs
+            document.getElementById('refreshLogsBtn').addEventListener('click', loadLogs);
         });
 
         // Toggle between input modes
@@ -1359,54 +1624,37 @@
             const reslangdLabel = document.getElementById('reslangdModeLabel');
             
             if (toggle.checked) {
-                // Switch to Reslängd mode
                 inputMode = 'reslangd';
                 kmStopSection.classList.add('hidden');
                 reslangdSection.classList.remove('hidden');
                 kmStopLabel.classList.remove('active');
                 reslangdLabel.classList.add('active');
                 
-                // Copy KM start value between both sets of fields
                 const kmStartValue = document.getElementById('km_start').value;
                 document.getElementById('km_start_reslangd').value = kmStartValue;
-                
-                // Calculate KM stop based on reslängd
                 calculateKmStopReslangdMode();
-                
-                // Update last KM info
                 const selectedVehicle = document.getElementById('bil').value;
                 if (selectedVehicle) {
                     updateLastKmInfoReslangdMode(selectedVehicle);
                 }
-                
-                // Manage required attributes
                 document.getElementById('km_start').removeAttribute('required');
                 document.getElementById('km_stop').removeAttribute('required');
                 document.getElementById('km_start_reslangd').setAttribute('required', 'required');
                 document.getElementById('reslangd_input').setAttribute('required', 'required');
-                
             } else {
-                // Switch to KM stop mode
                 inputMode = 'kmStop';
                 kmStopSection.classList.remove('hidden');
                 reslangdSection.classList.add('hidden');
                 kmStopLabel.classList.add('active');
                 reslangdLabel.classList.remove('active');
                 
-                // Copy KM start value between both sets of fields
                 const kmStartValue = document.getElementById('km_start_reslangd').value;
                 document.getElementById('km_start').value = kmStartValue;
-                
-                // Calculate distance based on KM stop
                 calculateDistanceKmStopMode();
-                
-                // Update last KM info
                 const selectedVehicle = document.getElementById('bil').value;
                 if (selectedVehicle) {
                     updateLastKmInfoKmStopMode(selectedVehicle);
                 }
-                
-                // Manage required attributes
                 document.getElementById('km_start_reslangd').removeAttribute('required');
                 document.getElementById('reslangd_input').removeAttribute('required');
                 document.getElementById('km_start').setAttribute('required', 'required');
@@ -1420,18 +1668,13 @@
             if (savedConfig) {
                 try {
                     localConfig = JSON.parse(savedConfig);
-                    
-                    // Apply default settings if they exist
                     if (localConfig.defaults) {
-                        // Apply enabled checkboxes
                         document.querySelectorAll('.default-checkbox').forEach(checkbox => {
                             const checkboxId = checkbox.id;
                             if (localConfig.defaults[checkboxId]) {
                                 checkbox.checked = true;
                             }
                         });
-                        
-                        // Apply values saved in localStorage
                         applyLocalDefaults();
                     }
                 } catch (e) {
@@ -1447,22 +1690,18 @@
         function applyLocalDefaults() {
             if (!localConfig.defaults) return;
             
-            // Apply standard start address
             if (localConfig.defaults.useDefaultStartAddress && localConfig.defaults.startAddressValue) {
                 document.getElementById('start_adress').value = localConfig.defaults.startAddressValue;
             }
             
-            // Apply standard purpose address
             if (localConfig.defaults.useDefaultSyfteAddress && localConfig.defaults.syfteAddressValue) {
                 document.getElementById('syfte_adress').value = localConfig.defaults.syfteAddressValue;
             }
             
-            // Apply standard end address
             if (localConfig.defaults.useDefaultEndAddress && localConfig.defaults.endAddressValue) {
                 document.getElementById('slut_adress').value = localConfig.defaults.endAddressValue;
             }
             
-            // Apply standard purpose
             if (localConfig.defaults.setDefaultPurpose && localConfig.defaults.purposeValue) {
                 const syfteSelect = document.getElementById('syfte_text');
                 const purposeValue = localConfig.defaults.purposeValue;
@@ -1476,7 +1715,6 @@
                 }
             }
             
-            // Apply standard project
             if (localConfig.defaults.setDefaultProject && localConfig.defaults.projectValue) {
                 document.getElementById('projekt').value = localConfig.defaults.projectValue;
             }
@@ -1519,7 +1757,6 @@
             const month = String(swedenTime.getMonth() + 1).padStart(2, '0');
             const day = String(swedenTime.getDate()).padStart(2, '0');
             
-            // Always set current date (removed the option to save as default)
             document.getElementById('datum').value = `${year}-${month}-${day}`;
         }
 
@@ -1552,27 +1789,21 @@
 
         // Setup all event listeners
         function setupEventListeners() {
-            // Login/Register
             document.getElementById('loginBtn').addEventListener('click', loginUser);
             document.getElementById('registerBtn').addEventListener('click', registerUser);
             document.getElementById('showRegisterBtn').addEventListener('click', showRegisterForm);
             document.getElementById('backToLoginBtn').addEventListener('click', showLoginForm);
             
-            // Vehicle selection
             document.getElementById('mainVehicleSelect').addEventListener('change', onVehicleSelect);
             
-            // Trip form
             document.getElementById('tripForm').addEventListener('submit', saveTrip);
             
-            // KM stop mode calculations
             document.getElementById('km_start').addEventListener('input', calculateDistanceKmStopMode);
             document.getElementById('km_stop').addEventListener('input', calculateDistanceKmStopMode);
             
-            // Reslängd mode calculations
             document.getElementById('km_start_reslangd').addEventListener('input', calculateKmStopReslangdMode);
             document.getElementById('reslangd_input').addEventListener('input', calculateKmStopReslangdMode);
             
-            // Purpose selection
             document.getElementById('syfte_text').addEventListener('change', function() {
                 const annatContainer = document.getElementById('annat-field-container');
                 if (this.value === 'Annat') {
@@ -1584,7 +1815,6 @@
                 }
             });
             
-            // Edit trip form
             document.getElementById('editTripForm').addEventListener('submit', updateTrip);
             document.getElementById('editKmStart').addEventListener('input', calculateEditDistance);
             document.getElementById('editKmStop').addEventListener('input', calculateEditDistance);
@@ -1600,22 +1830,18 @@
                 }
             });
             
-            // Default checkboxes
             document.querySelectorAll('.default-checkbox').forEach(checkbox => {
                 checkbox.addEventListener('change', function() {
                     const checkboxId = this.id;
                     
                     if (this.checked) {
-                        // Save current value as default
                         saveDefaultValue(checkboxId);
                     } else {
-                        // Remove default
                         removeDefaultValue(checkboxId);
                     }
                 });
             });
             
-            // Auto-save when values change
             document.getElementById('start_adress').addEventListener('change', function() {
                 if (document.getElementById('useDefaultStartAddress').checked) {
                     saveDefaultValue('useDefaultStartAddress');
@@ -1652,17 +1878,14 @@
                 }
             });
             
-            // Filters and sorting
             document.getElementById('monthFilter').addEventListener('change', filterTrips);
             document.getElementById('yearFilter').addEventListener('change', filterTrips);
             document.getElementById('vehicleFilter').addEventListener('change', filterTrips);
             document.getElementById('projectFilter').addEventListener('change', filterTrips);
             document.getElementById('sortDateBtn').addEventListener('click', toggleSortDirection);
             
-            // Export
             document.getElementById('exportBtn').addEventListener('click', exportToExcel);
             
-            // Configuration forms
             document.getElementById('vehicleForm').addEventListener('submit', function(e) {
                 e.preventDefault();
                 saveVehicle(e);
@@ -1676,7 +1899,6 @@
                 saveAddress(e);
             });
 
-            // Vehicle change - update KM info
             document.getElementById('bil').addEventListener('change', function() {
                 const selectedVehicle = this.value;
                 if (inputMode === 'kmStop') {
@@ -1686,7 +1908,6 @@
                 }
             });
             
-            // Validation for Reslängd input
             document.getElementById('reslangd_input').addEventListener('input', function() {
                 const value = parseInt(this.value) || 0;
                 if (value <= 0 && this.value !== '') {
@@ -2053,12 +2274,10 @@
             }
             
             if (key && value) {
-                // Save to localStorage
                 localConfig.defaults[checkboxId] = true;
                 localConfig.defaults[localStorageKey] = value;
                 saveLocalConfig();
                 
-                // Save to Firebase (optional, for synchronization between devices)
                 userDefaults[key] = value;
                 database.ref('userDefaults/' + currentUser.uid).set(userDefaults)
                     .then(() => {
@@ -2100,7 +2319,6 @@
                     break;
             }
             
-            // Remove from localStorage
             if (localConfig.defaults && localConfig.defaults[checkboxId]) {
                 delete localConfig.defaults[checkboxId];
                 if (localStorageKey) {
@@ -2109,7 +2327,6 @@
                 saveLocalConfig();
             }
             
-            // Remove from Firebase
             if (key && userDefaults[key]) {
                 delete userDefaults[key];
                 database.ref('userDefaults/' + currentUser.uid).set(userDefaults)
@@ -2172,7 +2389,9 @@
             loginBtn.disabled = true;
             
             auth.signInWithEmailAndPassword(email, password)
-                .then(() => {
+                .then((userCredential) => {
+                    // Registrar un log de login
+                    logAction('login', 'user', userCredential.user.uid, null, { email: email });
                     loginBtn.innerHTML = 'Logga in';
                     loginBtn.disabled = false;
                 })
@@ -2210,6 +2429,9 @@
                         email: email,
                         name: name,
                         createdAt: new Date().toISOString()
+                    }).then(() => {
+                        // Registrar log de registro
+                        logAction('register', 'user', user.uid, null, { email: email, name: name });
                     });
                 })
                 .then(() => {
@@ -2229,6 +2451,9 @@
 
         // Logout user
         function logoutUser() {
+            if (currentUser) {
+                logAction('logout', 'user', currentUser.uid, null, { email: currentUser.email });
+            }
             auth.signOut();
         }
 
@@ -2246,10 +2471,8 @@
 
         // Apply user defaults
         function applyUserDefaults() {
-            // First apply defaults from localStorage
             applyLocalDefaults();
             
-            // Then synchronize with Firebase if there are values not in localStorage
             if (userDefaults.start_adress && !localConfig.defaults.startAddressValue) {
                 localConfig.defaults.startAddressValue = userDefaults.start_adress;
                 if (!localConfig.defaults.useDefaultStartAddress) {
@@ -2285,10 +2508,8 @@
                 }
             }
             
-            // Save the combined configuration
             saveLocalConfig();
             
-            // Apply checkboxes based on the combined configuration
             document.querySelectorAll('.default-checkbox').forEach(checkbox => {
                 const checkboxId = checkbox.id;
                 if (localConfig.defaults[checkboxId]) {
@@ -2296,7 +2517,6 @@
                 }
             });
             
-            // Always set current date
             setCurrentDateSweden();
         }
 
@@ -2487,13 +2707,11 @@
                 `;
                 vehiclesList.appendChild(row);
                 
-                // Save if it has records for use in editVehicle
                 if (hasRecords) {
                     row.setAttribute('data-has-records', 'true');
                 }
             });
             
-            // Add event listeners for edit buttons
             document.querySelectorAll('.edit-vehicle').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const vehicleId = this.getAttribute('data-id');
@@ -2501,7 +2719,6 @@
                 });
             });
             
-            // Add event listeners for delete buttons
             document.querySelectorAll('.delete-vehicle').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const vehicleId = this.getAttribute('data-id');
@@ -2524,7 +2741,6 @@
                 document.getElementById('vehicleModel').value = vehicle.model;
                 document.getElementById('vehicleInitialKm').value = vehicle.initialKm || '';
                 
-                // Disable start kilometer if there are records
                 const kmInput = document.getElementById('vehicleInitialKm');
                 const helpText = document.getElementById('vehicleKmHelp');
                 if (hasRecords) {
@@ -2545,6 +2761,11 @@
         // Delete vehicle
         function deleteVehicle(vehicleId) {
             if (confirm('Är du säker på att du vill ta bort detta fordon?')) {
+                const vehicle = vehicles.find(v => v.id === vehicleId);
+                if (vehicle) {
+                    // Registrar log antes de borrar
+                    logAction('delete', 'vehicle', vehicleId, vehicle, null);
+                }
                 database.ref('vehicles/' + vehicleId).remove()
                     .then(() => {
                         alert('Fordon borttaget!');
@@ -2577,13 +2798,11 @@
                 return;
             }
             
-            // Check for duplicate first
             if (checkVehicleDuplicate()) {
                 showDuplicateMessage('fordon', vehicleReg);
                 return;
             }
             
-            // Check concurrency
             if (vehicleId && vehiclesData[vehicleId]) {
                 const serverVersion = vehiclesData[vehicleId].version || 0;
                 if (serverVersion > currentVersion) {
@@ -2592,7 +2811,6 @@
                 }
             }
             
-            // Check if there are records and if trying to change start kilometer
             if (vehicleId && hasRecords) {
                 const originalVehicle = vehicles.find(v => v.id === vehicleId);
                 if (originalVehicle && vehicleInitialKm != originalVehicle.initialKm) {
@@ -2612,9 +2830,12 @@
             };
             
             if (vehicleId) {
+                // Obtener el vehículo antes de actualizar para el log
+                const oldVehicle = vehicles.find(v => v.id === vehicleId);
                 database.ref('vehicles/' + vehicleId).update(vehicleData)
                     .then(() => {
                         alert('Fordon uppdaterat!');
+                        logAction('update', 'vehicle', vehicleId, oldVehicle, vehicleData);
                         resetVehicleForm();
                     })
                     .catch(error => {
@@ -2625,8 +2846,9 @@
                 vehicleData.created_by = currentUser.email;
                 vehicleData.version = 1;
                 database.ref('vehicles').push(vehicleData)
-                    .then(() => {
+                    .then((ref) => {
                         alert('Fordon sparat!');
+                        logAction('create', 'vehicle', ref.key, null, vehicleData);
                         resetVehicleForm();
                     })
                     .catch(error => {
@@ -2703,7 +2925,6 @@
                 projectsList.appendChild(row);
             });
             
-            // Add event listeners for edit buttons
             document.querySelectorAll('.edit-project').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const projectId = this.getAttribute('data-id');
@@ -2711,7 +2932,6 @@
                 });
             });
             
-            // Add event listeners for delete buttons
             document.querySelectorAll('.delete-project').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const projectId = this.getAttribute('data-id');
@@ -2739,6 +2959,10 @@
         // Delete project
         function deleteProject(projectId) {
             if (confirm('Är du säker på att du vill ta bort detta projekt?')) {
+                const project = projects.find(p => p.id === projectId);
+                if (project) {
+                    logAction('delete', 'project', projectId, project, null);
+                }
                 database.ref('projects/' + projectId).remove()
                     .then(() => {
                         alert('Projekt borttaget!');
@@ -2768,7 +2992,6 @@
                 return;
             }
             
-            // Check for duplicates first
             if (checkProjectDuplicate()) {
                 showDuplicateMessage('projektkod', projectCode);
                 return;
@@ -2779,7 +3002,6 @@
                 return;
             }
             
-            // Check concurrency
             if (projectId && projectsData[projectId]) {
                 const serverVersion = projectsData[projectId].version || 0;
                 if (serverVersion > currentVersion) {
@@ -2798,9 +3020,11 @@
             };
             
             if (projectId) {
+                const oldProject = projects.find(p => p.id === projectId);
                 database.ref('projects/' + projectId).update(projectData)
                     .then(() => {
                         alert('Projekt uppdaterat!');
+                        logAction('update', 'project', projectId, oldProject, projectData);
                         resetProjectForm();
                     })
                     .catch(error => {
@@ -2811,8 +3035,9 @@
                 projectData.created_by = currentUser.email;
                 projectData.version = 1;
                 database.ref('projects').push(projectData)
-                    .then(() => {
+                    .then((ref) => {
                         alert('Projekt sparat!');
+                        logAction('create', 'project', ref.key, null, projectData);
                         resetProjectForm();
                     })
                     .catch(error => {
@@ -2888,7 +3113,6 @@
                 addressesList.appendChild(row);
             });
             
-            // Add event listeners for edit buttons
             document.querySelectorAll('.edit-address').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const addressId = this.getAttribute('data-id');
@@ -2896,7 +3120,6 @@
                 });
             });
             
-            // Add event listeners for delete buttons
             document.querySelectorAll('.delete-address').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const addressId = this.getAttribute('data-id');
@@ -2921,6 +3144,10 @@
         // Delete address
         function deleteAddress(addressId) {
             if (confirm('Är du säker på att du vill ta bort denna adress?')) {
+                const address = addresses.find(a => a.id === addressId);
+                if (address) {
+                    logAction('delete', 'address', addressId, address, null);
+                }
                 database.ref('addresses/' + addressId).remove()
                     .then(() => {
                         alert('Adress borttagen!');
@@ -2949,13 +3176,11 @@
                 return;
             }
             
-            // Check for duplicate first
             if (checkAddressDuplicate()) {
                 showDuplicateMessage('adress', addressFull);
                 return;
             }
             
-            // Check concurrency
             if (addressId && addressesData[addressId]) {
                 const serverVersion = addressesData[addressId].version || 0;
                 if (serverVersion > currentVersion) {
@@ -2972,9 +3197,11 @@
             };
             
             if (addressId) {
+                const oldAddress = addresses.find(a => a.id === addressId);
                 database.ref('addresses/' + addressId).update(addressData)
                     .then(() => {
                         alert('Adress uppdaterad!');
+                        logAction('update', 'address', addressId, oldAddress, addressData);
                         resetAddressForm();
                     })
                     .catch(error => {
@@ -2985,8 +3212,9 @@
                 addressData.created_by = currentUser.email;
                 addressData.version = 1;
                 database.ref('addresses').push(addressData)
-                    .then(() => {
+                    .then((ref) => {
                         alert('Adress sparad!');
+                        logAction('create', 'address', ref.key, null, addressData);
                         resetAddressForm();
                     })
                     .catch(error => {
@@ -3034,8 +3262,6 @@
                 updateAllVehiclesLatestKm();
                 updateTripsDisplay();
                 updateStatistics();
-                
-                // No llamamos a reconcile aquí para evitar bucles
             });
         }
 
@@ -3091,7 +3317,6 @@
             document.getElementById('tripForm').reset();
             setCurrentDateSweden();
             
-            // Clear calculated fields based on current mode
             if (inputMode === 'kmStop') {
                 document.getElementById('reslangd').value = '';
                 document.getElementById('km_start').value = '';
@@ -3104,10 +3329,8 @@
             
             document.getElementById('annat-field-container').classList.add('hidden');
             
-            // Apply local defaults
             applyUserDefaults();
             
-            // Update last KM info based on current mode
             const selectedVehicle = document.getElementById('bil').value;
             if (selectedVehicle) {
                 if (inputMode === 'kmStop') {
@@ -3129,30 +3352,25 @@
             
             let startKm, stopKm, reslangdValue;
             
-            // Get values based on input mode
             if (inputMode === 'kmStop') {
                 startKm = parseInt(document.getElementById('km_start').value);
                 stopKm = parseInt(document.getElementById('km_stop').value);
                 reslangdValue = stopKm - startKm;
                 
-                // Validate that stop is greater than start
                 if (stopKm <= startKm) {
                     alert('KM stop måste vara större än KM start');
                     return;
                 }
             } else {
-                // Reslängd mode
                 startKm = parseInt(document.getElementById('km_start_reslangd').value);
                 reslangdValue = parseInt(document.getElementById('reslangd_input').value);
                 stopKm = startKm + reslangdValue;
                 
-                // Validate that reslängd is greater than 0
                 if (reslangdValue <= 0) {
                     alert('Reslängd måste vara större än 0');
                     return;
                 }
                 
-                // Also validate that stop is greater than start
                 if (stopKm <= startKm) {
                     alert('KM stop måste vara större än KM start');
                     return;
@@ -3168,13 +3386,11 @@
                 ? document.getElementById('annat_text').value.trim()
                 : purposeSelect.value;
             
-            // Validation
             if (!startKm || !stopKm || !startAddress || !syfteAddress || !endAddress || !date || !purpose) {
                 alert('Vänligen fyll i alla obligatoriska fält');
                 return;
             }
             
-            // Check for duplicates if enabled
             const doubleCheck = document.getElementById('doubleCheckToggle').checked;
             if (doubleCheck) {
                 const vehicleReg = document.getElementById('bil').value;
@@ -3186,7 +3402,6 @@
                 }
             }
             
-            // Prepare trip data
             const tripData = {
                 datum: new Date(date).toISOString(),
                 km_start: startKm,
@@ -3203,16 +3418,21 @@
                 created_by_uid: currentUser.uid
             };
             
-            // Save to Firebase
             database.ref('trips').push().set(tripData)
-                .then(() => {
+                .then((ref) => {
                     alert('Resan har sparats!');
+                    logAction('create', 'trip', ref.key, null, tripData);
                     resetTripForm();
                     
-                    // Reconcile trips for this vehicle to ensure correct odometer readings
-                    return reconcileVehicleTrips(tripData.bil);
-                })
-                .then(() => {
+                    const vehicleReg = document.getElementById('bil').value;
+                    const vehicle = vehicles.find(v => v.regnr === vehicleReg);
+                    if (vehicle) {
+                        database.ref('vehicles/' + vehicle.id).update({
+                            last_km: stopKm,
+                            updated_at: new Date().toISOString()
+                        });
+                    }
+                    
                     expandTripsSection();
                 })
                 .catch(error => {
@@ -3239,92 +3459,6 @@
             });
         }
 
-        // Reconcile odometer readings for a specific vehicle (asynchronous, uses Firebase directly)
-        function reconcileVehicleTrips(vehicleReg) {
-            if (_reconciling) {
-                console.log('Reconciliation already in progress for', vehicleReg);
-                return Promise.resolve();
-            }
-            _reconciling = true;
-            console.log('Starting reconciliation for', vehicleReg);
-
-            return database.ref('trips').orderByChild('bil').equalTo(vehicleReg).once('value')
-                .then(snapshot => {
-                    const vehicleTrips = [];
-                    snapshot.forEach(child => {
-                        const trip = child.val();
-                        trip.id = child.key;
-                        vehicleTrips.push(trip);
-                    });
-                    vehicleTrips.sort((a, b) => new Date(a.datum) - new Date(b.datum));
-
-                    if (vehicleTrips.length === 0) {
-                        console.log('No trips for', vehicleReg);
-                        return;
-                    }
-
-                    const vehicle = vehicles.find(v => v.regnr === vehicleReg);
-                    if (!vehicle) {
-                        console.log('Vehicle not found', vehicleReg);
-                        return;
-                    }
-
-                    let baseline = vehicle.initialKm || 0;
-                    if (baseline === 0 && vehicleTrips[0].km_start > 0) {
-                        baseline = vehicleTrips[0].km_start;
-                        console.log('Using first trip start as baseline:', baseline);
-                    }
-
-                    let currentKm = baseline;
-                    const updates = {};
-                    let anyChange = false;
-
-                    vehicleTrips.forEach(trip => {
-                        const distance = trip.reslangd || 0;
-                        const newStart = currentKm;
-                        const newStop = newStart + distance;
-
-                        if (trip.km_start !== newStart || trip.km_stop !== newStop) {
-                            console.log(`Trip ${trip.id} will change: start ${trip.km_start}->${newStart}, stop ${trip.km_stop}->${newStop}`);
-                            updates[`trips/${trip.id}/km_start`] = newStart;
-                            updates[`trips/${trip.id}/km_stop`] = newStop;
-                            anyChange = true;
-                        } else {
-                            console.log(`Trip ${trip.id} unchanged`);
-                        }
-
-                        currentKm = newStop;
-                    });
-
-                    if (vehicleTrips.length > 0) {
-                        const lastKm = currentKm;
-                        if (vehicle.last_km !== lastKm) {
-                            console.log(`Vehicle last_km will change: ${vehicle.last_km}->${lastKm}`);
-                            updates[`vehicles/${vehicle.id}/last_km`] = lastKm;
-                            anyChange = true;
-                        }
-                    }
-
-                    if (anyChange) {
-                        console.log('Applying updates:', updates);
-                        return database.ref().update(updates)
-                            .then(() => {
-                                console.log('Reconciliation updates applied successfully for', vehicleReg);
-                                // No need to call loadTrips() here, the Firebase listener will update the view
-                            });
-                    } else {
-                        console.log('No changes needed for', vehicleReg);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error during reconciliation:', error);
-                })
-                .finally(() => {
-                    _reconciling = false;
-                    console.log('Reconciliation finished for', vehicleReg);
-                });
-        }
-
         // Update trips display
         function updateTripsDisplay() {
             const tripsListContainer = document.getElementById('tripsListContainer');
@@ -3339,7 +3473,6 @@
             
             noTripsMessage.classList.add('hidden');
             
-            // Get filter values
             const monthFilterValue = document.getElementById('monthFilter').value;
             const yearFilterValue = document.getElementById('yearFilter').value;
             const vehicleFilterValue = document.getElementById('vehicleFilter').value;
@@ -3347,7 +3480,6 @@
             
             let filteredTrips = trips;
             
-            // Apply filters
             if (monthFilterValue !== 'all') {
                 filteredTrips = filteredTrips.filter(trip => {
                     const tripDate = new Date(trip.datum);
@@ -3370,14 +3502,12 @@
                 filteredTrips = filteredTrips.filter(trip => trip.projekt === projectFilterValue);
             }
             
-            // Apply sorting
             if (sortDirection === 'asc') {
                 filteredTrips.sort((a, b) => new Date(a.datum) - new Date(b.datum));
             } else {
                 filteredTrips.sort((a, b) => new Date(b.datum) - new Date(a.datum));
             }
             
-            // Group trips by vehicle
             const tripsByVehicle = {};
             
             filteredTrips.forEach(trip => {
@@ -3387,7 +3517,6 @@
                 tripsByVehicle[trip.bil].push(trip);
             });
             
-            // Create display for each vehicle
             Object.keys(tripsByVehicle).sort().forEach(vehicleReg => {
                 const vehicleTrips = tripsByVehicle[vehicleReg];
                 const vehicle = vehicles.find(v => v.regnr === vehicleReg);
@@ -3425,7 +3554,6 @@
                 
                 const tripsList = document.getElementById(`tripsList-${vehicleReg}`);
                 
-                // Add each trip
                 vehicleTrips.forEach(trip => {
                     const formattedDate = formatDate(trip.datum);
                     
@@ -3447,7 +3575,6 @@
                 });
             });
             
-            // Add event listeners for edit buttons
             document.querySelectorAll('.edit-trip').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const tripId = this.getAttribute('data-id');
@@ -3455,7 +3582,6 @@
                 });
             });
             
-            // Add event listeners for delete buttons
             document.querySelectorAll('.delete-trip').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const tripId = this.getAttribute('data-id');
@@ -3519,7 +3645,6 @@
                 ? editAnnatText.value.trim()
                 : editSyfteText.value;
             
-            // Check for duplicates if enabled
             const doubleCheck = document.getElementById('doubleCheckToggle').checked;
             if (doubleCheck) {
                 const vehicleReg = document.getElementById('editBil').value;
@@ -3556,10 +3681,17 @@
             database.ref('trips/' + tripId).update(updatedTripData)
                 .then(() => {
                     alert('Resan har uppdaterats!');
+                    logAction('update', 'trip', tripId, trip, updatedTripData);
                     closeModal('editTripModal');
                     
-                    // Reconcile trips for this vehicle to ensure correct odometer readings
-                    return reconcileVehicleTrips(updatedTripData.bil);
+                    const vehicleReg = document.getElementById('editBil').value;
+                    const vehicle = vehicles.find(v => v.regnr === vehicleReg);
+                    if (vehicle) {
+                        database.ref('vehicles/' + vehicle.id).update({
+                            last_km: updatedTripData.km_stop,
+                            updated_at: new Date().toISOString()
+                        });
+                    }
                 })
                 .catch(error => {
                     alert('Ett fel inträffade: ' + error.message);
@@ -3569,6 +3701,10 @@
         // Delete trip
         function deleteTrip(tripId) {
             if (confirm('Är du säker på att du vill ta bort denna resa?')) {
+                const trip = trips.find(t => t.id === tripId);
+                if (trip) {
+                    logAction('delete', 'trip', tripId, trip, null);
+                }
                 database.ref('trips/' + tripId).remove()
                     .then(() => {
                         alert('Resa borttagen!');
